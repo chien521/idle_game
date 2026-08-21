@@ -1,5 +1,6 @@
 import type { Simulation } from "../simulation";
 import { UNLOCKS } from "../unlocks";
+import { VISITOR_LABELS } from "../easterEgg";
 import { t } from "../i18n";
 
 export interface CreaturePanel {
@@ -87,9 +88,10 @@ export function mountCreaturePanel(root: HTMLElement, sim: Simulation): Creature
     if (document.activeElement !== nameInput) nameInput.value = creature.name;
     const companionship = sim.time - creature.bornAt;
     const favoriteLabel = UNLOCKS.find((u) => u.decorShape === creature.favoriteDecor)?.label ?? "";
+    const taintLine = creature.taintedBy ? `　${t("creature.taintedBy", { name: VISITOR_LABELS[creature.taintedBy] })}` : "";
     info.textContent = `${formatCompanionship(companionship)}${creature.genome.rare ? `　${t("creature.rare")}` : ""}${
       favoriteLabel ? `　${t("creature.favorite", { name: favoriteLabel })}` : ""
-    }`;
+    }${taintLine}`;
   }
 
   function show(creatureId: string): void {

@@ -171,6 +171,14 @@ export const UNLOCKS: UnlockDef[] = [
     progressLabel: (sim) => t("progress.visitors", { count: sim.seenVisitorKinds.size, total: VISITOR_KINDS.length }),
   },
   {
+    id: "codex-visitor-lineage",
+    label: t("label.codex-visitor-lineage"),
+    type: "codex",
+    description: t("desc.codex-visitor-lineage"),
+    isMet: (sim) => sim.seenVisitorLineage,
+    progressLabel: (sim) => t(sim.seenVisitorLineage ? "progress.seen" : "progress.notSeen"),
+  },
+  {
     id: "mechanic-greenhouse-expansion",
     label: t("label.greenhouse"),
     type: "decor",

@@ -94,6 +94,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
     "creature.rare": "✨ 稀有變異",
     "creature.favorite": "💛 最愛：{name}",
+    "creature.taintedBy": "🌟 曾被{name}觸碰過",
 
     "label.moss-stone": "苔石裝飾",
     "label.campfire": "營火",
@@ -106,6 +107,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "label.codex-rainbow": "雨後彩虹",
     "label.codex-meteor-shower": "夜空流星雨",
     "label.codex-easter-egg": "神秘小訪客",
+    "label.codex-visitor-lineage": "訪客血脈",
     "label.greenhouse": "迷你溫室擴建",
     "label.stone-lantern": "石燈籠",
     "label.garden-gazebo": "小涼亭",
@@ -124,6 +126,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "desc.codex-rainbow": "春夏雨停後遇到一次彩虹",
     "desc.codex-meteor-shower": "晴朗夜晚遇到一次流星雨",
     "desc.codex-easter-egg": "點到偶爾飄進生態瓶裡的神秘訪客",
+    "desc.codex-visitor-lineage": "讓一隻帶有訪客印記的個體誕生",
 
     "progress.days": "{value} / {n} 天",
     "progress.seasonal": "{dayPart}　·　{seasonPart}",
@@ -193,6 +196,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
     "creature.rare": "✨ 稀有变异",
     "creature.favorite": "💛 最爱：{name}",
+    "creature.taintedBy": "🌟 曾被{name}触碰过",
 
     "label.moss-stone": "苔石装饰",
     "label.campfire": "营火",
@@ -205,6 +209,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "label.codex-rainbow": "雨后彩虹",
     "label.codex-meteor-shower": "夜空流星雨",
     "label.codex-easter-egg": "神秘小访客",
+    "label.codex-visitor-lineage": "访客血脉",
     "label.greenhouse": "迷你温室扩建",
     "label.stone-lantern": "石灯笼",
     "label.garden-gazebo": "小凉亭",
@@ -223,6 +228,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "desc.codex-rainbow": "春夏雨停后遇到一次彩虹",
     "desc.codex-meteor-shower": "晴朗夜晚遇到一次流星雨",
     "desc.codex-easter-egg": "点到偶尔飘进生态瓶里的神秘访客",
+    "desc.codex-visitor-lineage": "让一只带有访客印记的个体诞生",
 
     "progress.days": "{value} / {n} 天",
     "progress.seasonal": "{dayPart}　·　{seasonPart}",
@@ -292,6 +298,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
     "creature.rare": "✨ Rare mutant",
     "creature.favorite": "💛 Favorite: {name}",
+    "creature.taintedBy": "🌟 Once touched by {name}",
 
     "label.moss-stone": "Mossy Stone",
     "label.campfire": "Campfire",
@@ -304,6 +311,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "label.codex-rainbow": "Rainbow After Rain",
     "label.codex-meteor-shower": "Night Meteor Shower",
     "label.codex-easter-egg": "Mystery Visitor",
+    "label.codex-visitor-lineage": "Visitor Lineage",
     "label.greenhouse": "Mini Greenhouse Expansion",
     "label.stone-lantern": "Stone Lantern",
     "label.garden-gazebo": "Garden Gazebo",
@@ -322,6 +330,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "desc.codex-rainbow": "Catch a rainbow after rain in spring or summer",
     "desc.codex-meteor-shower": "Catch a meteor shower on a clear night",
     "desc.codex-easter-egg": "Tap the mystery visitor that occasionally drifts into the terrarium",
+    "desc.codex-visitor-lineage": "Have a creature carrying a visitor's mark be born",
 
     "progress.days": "{value} / {n} days",
     "progress.seasonal": "{dayPart}　·　{seasonPart}",
@@ -391,6 +400,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
     "creature.rare": "✨ レア変異体",
     "creature.favorite": "💛 お気に入り：{name}",
+    "creature.taintedBy": "🌟 かつて{name}に触れられた",
 
     "label.moss-stone": "苔むした石",
     "label.campfire": "キャンプファイヤー",
@@ -403,6 +413,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "label.codex-rainbow": "雨上がりの虹",
     "label.codex-meteor-shower": "夜空の流れ星",
     "label.codex-easter-egg": "謎の訪問者",
+    "label.codex-visitor-lineage": "訪問者の血統",
     "label.greenhouse": "ミニ温室拡張",
     "label.stone-lantern": "石灯籠",
     "label.garden-gazebo": "ガゼボ",
@@ -421,6 +432,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "desc.codex-rainbow": "春か夏、雨上がりに虹に出会う",
     "desc.codex-meteor-shower": "晴れた夜に流れ星に出会う",
     "desc.codex-easter-egg": "テラリウムにたまに現れる謎の訪問者をタップする",
+    "desc.codex-visitor-lineage": "訪問者の印を持つ個体を誕生させる",
 
     "progress.days": "{value} / {n} 日",
     "progress.seasonal": "{dayPart}　·　{seasonPart}",
@@ -490,6 +502,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
     "creature.rare": "✨ 희귀 변이",
     "creature.favorite": "💛 최애: {name}",
+    "creature.taintedBy": "🌟 한때 {name}에게 닿았던 적이 있음",
 
     "label.moss-stone": "이끼 낀 돌",
     "label.campfire": "모닥불",
@@ -502,6 +515,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "label.codex-rainbow": "비 갠 뒤 무지개",
     "label.codex-meteor-shower": "밤하늘의 유성우",
     "label.codex-easter-egg": "신비한 방문자",
+    "label.codex-visitor-lineage": "방문자의 혈통",
     "label.greenhouse": "미니 온실 확장",
     "label.stone-lantern": "돌 등롱",
     "label.garden-gazebo": "정원 정자",
@@ -520,6 +534,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "desc.codex-rainbow": "봄이나 여름, 비가 갠 뒤 무지개를 만남",
     "desc.codex-meteor-shower": "맑은 밤에 유성우를 만남",
     "desc.codex-easter-egg": "테라리움에 가끔 나타나는 신비한 방문자를 탭하기",
+    "desc.codex-visitor-lineage": "방문자의 흔적을 지닌 개체를 탄생시키기",
 
     "progress.days": "{value} / {n}일",
     "progress.seasonal": "{dayPart}　·　{seasonPart}",
@@ -589,6 +604,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
 
     "creature.rare": "✨ Mutante rara",
     "creature.favorite": "💛 Favorito: {name}",
+    "creature.taintedBy": "🌟 Tocado una vez por {name}",
 
     "label.moss-stone": "Piedra musgosa",
     "label.campfire": "Fogata",
@@ -601,6 +617,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "label.codex-rainbow": "Arcoíris tras la lluvia",
     "label.codex-meteor-shower": "Lluvia de meteoros nocturna",
     "label.codex-easter-egg": "Visitante misterioso",
+    "label.codex-visitor-lineage": "Linaje del visitante",
     "label.greenhouse": "Ampliación de mini invernadero",
     "label.stone-lantern": "Farol de piedra",
     "label.garden-gazebo": "Glorieta de jardín",
@@ -619,6 +636,7 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "desc.codex-rainbow": "Ve un arcoíris tras la lluvia en primavera o verano",
     "desc.codex-meteor-shower": "Ve una lluvia de meteoros en una noche despejada",
     "desc.codex-easter-egg": "Toca al visitante misterioso que a veces aparece en el terrario",
+    "desc.codex-visitor-lineage": "Haz que nazca una criatura con la marca de un visitante",
 
     "progress.days": "{value} / {n} días",
     "progress.seasonal": "{dayPart}　·　{seasonPart}",

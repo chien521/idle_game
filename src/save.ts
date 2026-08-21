@@ -21,6 +21,7 @@ interface SerializedCreature {
   lastBredAt: number;
   parentIds?: [string, string] | null; // 舊存檔（家庭關係功能推出前）沒有這欄，載入時當成始祖處理
   partnerId?: string | null; // 舊存檔（一夫一妻功能推出前）沒有這欄，載入時當成單身處理
+  taintedBy?: VisitorKind | null; // 舊存檔（訪客血脈功能推出前）沒有這欄，載入時當成沒沾染處理
 }
 
 export interface SaveData {
@@ -37,6 +38,7 @@ export interface SaveData {
   seenMeteorShower?: boolean;
   seenEasterEgg?: boolean; // 舊存檔（訪客只有一種造型時）的旗標，見 deserializeIntoSimulation 的遷移邏輯
   seenVisitorKinds?: string[];
+  seenVisitorLineage?: boolean;
   discoveredCreatures?: DiscoveredCreature[];
   interactionBonusSeconds?: number;
   lastBirthAt?: number;
@@ -61,6 +63,7 @@ export function serialize(
       lastBredAt: c.lastBredAt,
       parentIds: c.parentIds,
       partnerId: c.partnerId,
+      taintedBy: c.taintedBy,
     })),
     unlockedIds: [...unlockedIds],
     placements: [...placements],
@@ -70,6 +73,7 @@ export function serialize(
     seenRainbow: sim.seenRainbow,
     seenMeteorShower: sim.seenMeteorShower,
     seenVisitorKinds: [...sim.seenVisitorKinds],
+    seenVisitorLineage: sim.seenVisitorLineage,
     discoveredCreatures: sim.discoveredCreatures.map((d) => ({ ...d })),
     interactionBonusSeconds: sim.interactionBonusSeconds,
     lastBirthAt: sim.lastBirthAt,
@@ -150,10 +154,13 @@ export function readPlacements(data: SaveData): DecorPlacement[] {
   }));
 }
 
-/** 補齊舊存檔缺少的 Genome 欄位（外形基因是後來才加入的），避免載入舊存檔時 renderer 存取 undefined 炸掉。 */
+/** 補齊舊存檔缺少的 Genome 欄位（外形基因、訪客血脈都是後來才加入的），避免載入舊存檔時
+ *  renderer/codexPanel 存取 undefined 炸掉。 */
 function migrateGenome(genome: Genome): Genome {
-  if (genome.shape) return genome;
-  return { ...genome, shape: { ...SHAPE_ANCHORS[0] } };
+  const shape = genome.shape ? genome.shape : { ...SHAPE_ANCHORS[0] };
+  const visitorLineage = genome.visitorLineage ?? null;
+  if (genome.shape && genome.visitorLineage !== undefined) return genome;
+  return { ...genome, shape, visitorLineage };
 }
 
 export function deserializeIntoSimulation(data: SaveData): Simulation {
@@ -182,6 +189,7 @@ export function deserializeIntoSimulation(data: SaveData): Simulation {
       parentIds: c.parentIds ?? null,
       partnerId: c.partnerId ?? null,
       favoriteDecor: favoriteDecorShape(genome), // 純衍生值，不用存檔欄位，載入時直接重算（見 personality.ts）
+      taintedBy: c.taintedBy ?? null,
     };
   });
 
@@ -217,6 +225,12 @@ export function deserializeIntoSimulation(data: SaveData): Simulation {
       if (e.wind >= 0.8) sim.seenSpectrum.wind = true;
       if (e.shade >= 0.8) sim.seenSpectrum.shade = true;
     }
+  }
+  if (data.seenVisitorLineage !== undefined) {
+    sim.seenVisitorLineage = data.seenVisitorLineage;
+  } else {
+    // 舊存檔（訪客血脈功能推出前）沒有這個旗標，用歷史紀錄回推一次。
+    sim.seenVisitorLineage = (data.discoveredCreatures ?? []).some((d) => migrateGenome(d.genome).visitorLineage);
   }
 
   if (data.discoveredCreatures) {

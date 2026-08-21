@@ -2,6 +2,7 @@ import type { Genome } from "./genome";
 import { generateCreatureName } from "./names";
 import { favoriteDecorShape } from "./personality";
 import type { DecorShape } from "./unlocks";
+import type { VisitorKind } from "./easterEgg";
 
 export type CreatureState = "wander" | "cooldown-glow";
 
@@ -26,6 +27,9 @@ export interface Creature {
   parentIds: [string, string] | null; // 始祖是 null，供圖鑑顯示家庭關係（見 unlocks/codexPanel）
   partnerId: string | null; // 一夫一妻：配對後只跟這個 id 繁殖，見 simulation.ts 的 resolvePairing
   favoriteDecor: DecorShape; // 「個性」：由 genome 元素傾向推出，純衍生值，見 personality.ts
+  /** 沾染：摸摸時如果剛好有稀有訪客可見，有機率標記上；終生保留，本身不影響外觀，
+   *  只是繁殖時「有機會把訪客血脈傳給下一代」的潛在因子，見 simulation.ts 的 pet() / performBreed()。 */
+  taintedBy: VisitorKind | null;
 }
 
 let nextId = 0;
@@ -62,5 +66,6 @@ export function createCreature(
     parentIds,
     partnerId: null,
     favoriteDecor: favoriteDecorShape(genome),
+    taintedBy: null,
   };
 }

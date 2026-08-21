@@ -18,6 +18,14 @@ const ROLE_BORDER_COLOR: Record<FamilyRole, string> = {
   descendant: "#ff7fa8",
 };
 
+// 訪客血脈徽章顏色，比照 render/creatureSprite.ts 的 VISITOR_LINEAGE_COLOR，讓圖鑑格子跟寵物剪影本身用同一套顏色語言。
+const VISITOR_LINEAGE_BADGE_COLOR: Record<VisitorKind, string> = {
+  "star-spirit": "#c9a2f0",
+  "cloud-puff": "#eaf3fb",
+  "glow-fish": "#3fd6c4",
+  "shimmer-moth": "#e88fc4",
+};
+
 export interface CodexPanel {
   toggle: () => void;
   update: () => void;
@@ -79,7 +87,7 @@ function thumbBox(entry: DiscoveredCreature, size: number): HTMLElement {
   const box = document.createElement("div");
   const hue = entry.genome.visual.hue;
   box.style.cssText = `
-    width: ${size}px; height: ${size}px; border-radius: ${Math.round(size * 0.22)}px;
+    position: relative; width: ${size}px; height: ${size}px; border-radius: ${Math.round(size * 0.22)}px;
     display: flex; align-items: center; justify-content: center; flex: none;
     background: hsla(${hue}, 45%, 32%, 0.9);
     border: 2px solid hsla(${hue}, 60%, 60%, 0.5);
@@ -88,6 +96,18 @@ function thumbBox(entry: DiscoveredCreature, size: number): HTMLElement {
   const canvas = renderCreatureCanvas(entry.genome);
   canvas.style.cssText = `width: ${Math.round(size * 0.65)}px; height: ${Math.round(size * 0.65)}px; image-rendering: pixelated;`;
   box.appendChild(canvas);
+
+  const lineage = entry.genome.visitorLineage;
+  if (lineage) {
+    const badge = document.createElement("div");
+    badge.title = VISITOR_LABELS[lineage];
+    badge.style.cssText = `
+      position: absolute; top: -3px; right: -3px; width: 10px; height: 10px; border-radius: 50%;
+      background: ${VISITOR_LINEAGE_BADGE_COLOR[lineage]}; border: 1px solid rgba(20,37,32,0.8);
+    `;
+    box.appendChild(badge);
+  }
+
   return box;
 }
 

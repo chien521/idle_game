@@ -10,7 +10,7 @@ import { createCreature, type Creature } from "./creature";
 import type { DecorPlacement } from "./decor";
 import { rainbowIntensityForTime, meteorShowerIntensityForTime } from "./season";
 import { decorShapeForUnlockId } from "./unlocks";
-import type { VisitorKind } from "./easterEgg";
+import { easterEggStateForTime, type VisitorKind } from "./easterEgg";
 
 /**
  * 幫活動持續時間加一點隨機浮動（0.6x～1.4x）。
@@ -33,6 +33,12 @@ function siblingColorBucket(hue: number): number {
 function siblingSignature(genome: Genome): string {
   return `${classifyShapeCategory(genome)}|${siblingColorBucket(genome.visual.hue)}`;
 }
+
+// 訪客沾染／血脈：見 Creature.taintedBy 跟 Genome.visitorLineage 的註解。兩個獨立機率——
+// 沾染是「摸到訪客可見期間的寵物」，血脈是「沾染/帶血脈的親代生小孩時，往下傳一次」，
+// 跟 genome.ts 的 RARE_MUTATION_CHANCE 同一種「模組常數」層級，不放進 SimulationConfig。
+const VISITOR_TAINT_CHANCE = 0.15;
+const VISITOR_LINEAGE_INHERIT_CHANCE = 0.3;
 
 export interface TerrariumBounds {
   width: number;
@@ -169,6 +175,8 @@ export class Simulation {
   /** 稀有訪客要玩家主動點到才算「找到」，不是自動觀察到就算——見 markVisitorFound。
    *  記錄的是「哪些種類」被找到過（見 easterEgg.ts 的 VisitorKind），供圖鑑子圖鑑顯示收集進度。 */
   seenVisitorKinds: Set<VisitorKind> = new Set();
+  /** 歷來有沒有出生過帶「訪客血脈」（genome.visitorLineage）的個體，累積旗標，見 observeGenome。 */
+  seenVisitorLineage = false;
   /** 圖鑑：歷來出現過的每一隻個體都會留一筆紀錄，見 observeGenome。 */
   discoveredCreatures: DiscoveredCreature[] = [];
   /** 場上還沒被吃掉的食物，見 dropFood/stepCreatures。 */
@@ -205,14 +213,23 @@ export class Simulation {
     this.seenVisitorKinds.add(kind);
   }
 
-  /** 摸摸：純粹的互動回饋（愛心特效/提示交給 UI 層），跟數值無關。回傳是否實際生效（冷卻中則忽略）。 */
-  pet(creatureId: string): boolean {
+  /** 摸摸：互動回饋（愛心特效/提示交給 UI 層）。回傳是否實際生效（冷卻中則忽略），以及這次摸摸
+   *  有沒有剛好讓這隻寵物「沾染」上稀有訪客（訪客當下必須可見，見 easterEgg.ts 的 easterEggStateForTime）——
+   *  沾染本身終生保留、不影響外觀，只是繁殖時「有機會把訪客血脈傳給下一代」的潛在因子，見 performBreed。 */
+  pet(creatureId: string): { petted: boolean; newlyTainted: boolean } {
     const creature = this.creatures.find((c) => c.id === creatureId);
-    if (!creature) return false;
-    if (this.time - creature.lastPettedAt < this.config.petCooldownSeconds) return false;
+    if (!creature) return { petted: false, newlyTainted: false };
+    if (this.time - creature.lastPettedAt < this.config.petCooldownSeconds) return { petted: false, newlyTainted: false };
     creature.lastPettedAt = this.time;
     this.interactionBonusSeconds += this.config.petCompanionBonusSeconds;
-    return true;
+
+    let newlyTainted = false;
+    const visitor = easterEggStateForTime(this.time);
+    if (visitor.visible && Math.random() < VISITOR_TAINT_CHANCE) {
+      creature.taintedBy = visitor.kind;
+      newlyTainted = true;
+    }
+    return { petted: true, newlyTainted };
   }
 
   /** 改名：只改目前存活的個體；圖鑑裡對應的歷史紀錄也一併同步，讓收藏頁看到的名字一致。回傳是否成功（找不到該 id 則失敗）。 */
@@ -251,6 +268,7 @@ export class Simulation {
   private observeGenome(creature: Creature): void {
     const genome = creature.genome;
     if (genome.rare) this.seenRareCreature = true;
+    if (genome.visitorLineage) this.seenVisitorLineage = true;
     const e = genome.elements;
     if (e.sun >= 0.8) this.seenSpectrum.sun = true;
     if (e.moisture >= 0.8) this.seenSpectrum.moisture = true;
@@ -561,6 +579,13 @@ export class Simulation {
     let childGenome = breed(a.genome, b.genome);
     for (let attempt = 0; attempt < 12 && usedSignatures.has(siblingSignature(childGenome)); attempt++) {
       childGenome = breed(a.genome, b.genome);
+    }
+
+    // 訪客血脈：任一親代「目前帶有沾染」或「本身基因已經有血脈標記」，子代就有機會繼承——
+    // 沒有任何一方帶有痕跡的正常配對，這個 candidate 就是 null，永遠不會生出帶血脈的小孩。
+    const lineageCandidate = a.taintedBy ?? b.taintedBy ?? a.genome.visitorLineage ?? b.genome.visitorLineage;
+    if (lineageCandidate && Math.random() < VISITOR_LINEAGE_INHERIT_CHANCE) {
+      childGenome.visitorLineage = lineageCandidate;
     }
 
     const childX = (a.x + b.x) / 2 + (Math.random() - 0.5) * 0.3;

@@ -1,4 +1,5 @@
 import { t } from "./i18n";
+import type { VisitorKind } from "./easterEgg";
 
 // 元素傾向基因：向陽 / 喜濕 / 耐風 / 向陰，各 0..1 強度（非互斥類別，允許混合傾向）
 export interface ElementTraits {
@@ -33,6 +34,10 @@ export interface Genome {
   visual: VisualTraits;
   rare: boolean; // 是否帶有稀有變異（供 UI 顯示光暈等）
   generation: number;
+  /** 訪客血脈：可遺傳、永久的旗標，跟 rare 同一層級，見 simulation.ts 的 performBreed。
+   *  breed() 本身只負責把它預設成 null（維持「純基因重組」的職責），真正指定血脈的
+   *  邏輯（有沒有親代帶有沾染）放在 simulation.ts，因為那邊才有 Creature.taintedBy 可以看。 */
+  visitorLineage: VisitorKind | null;
 }
 
 // 四種外形原型錨點：圓 / 三角 / 方潤 / 菱角（方與菱同為 4 折對稱，靠 n 值區分圓潤/尖銳）
@@ -129,6 +134,7 @@ export function createFounderGenome(anchorIndex?: number): Genome {
     visual: randomVisualTraits(),
     rare: false,
     generation: 0,
+    visitorLineage: null,
   };
 }
 
@@ -191,6 +197,7 @@ export function breed(parentA: Genome, parentB: Genome): Genome {
       },
       rare: true,
       generation: Math.max(parentA.generation, parentB.generation) + 1,
+      visitorLineage: null,
     };
   }
 
@@ -219,5 +226,6 @@ export function breed(parentA: Genome, parentB: Genome): Genome {
     visual,
     rare: false,
     generation: Math.max(parentA.generation, parentB.generation) + 1,
+    visitorLineage: null,
   };
 }

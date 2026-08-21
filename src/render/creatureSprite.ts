@@ -1,7 +1,17 @@
 import * as THREE from "three";
 import { maxSuperformulaRadius, superformulaRadius, type Genome } from "../genome";
+import type { VisitorKind } from "../easterEgg";
 
 const GRID = 16;
+
+// 訪客血脈的標記色，四個角落點幾個像素當標記，跟 rare 的外框光暈共存不互相遮蔽（見下方 genome.visitorLineage）。
+// 顏色比照 render/rareVisitorSprite.ts 各訪客的主色調，讓玩家能靠顏色聯想到是哪一種訪客的血脈。
+const VISITOR_LINEAGE_COLOR: Record<VisitorKind, string> = {
+  "star-spirit": "#c9a2f0",
+  "cloud-puff": "#eaf3fb",
+  "glow-fish": "#3fd6c4",
+  "shimmer-moth": "#e88fc4",
+};
 
 /**
  * 依基因程序化畫出一個像素風小生物：莖 + superformula 剪影主體 + 簡單雙眼。
@@ -105,6 +115,19 @@ export function renderCreatureCanvas(genome: Genome): HTMLCanvasElement {
     ctx.strokeStyle = `hsla(${(hue + 180) % 360}, 90%, 70%, 0.9)`;
     ctx.lineWidth = 0.6;
     ctx.strokeRect(1, 1, GRID - 2, GRID - 2);
+  }
+
+  // 訪客血脈：四個角落各點一顆訪客專屬色的小光點，跟 rare 的外框光暈是兩種獨立標記、可以同時出現。
+  if (genome.visitorLineage) {
+    ctx.fillStyle = VISITOR_LINEAGE_COLOR[genome.visitorLineage];
+    for (const [cx2, cy2] of [
+      [0, 0],
+      [GRID - 1, 0],
+      [0, GRID - 1],
+      [GRID - 1, GRID - 1],
+    ] as const) {
+      ctx.fillRect(cx2, cy2, 1, 1);
+    }
   }
 
   return canvas;

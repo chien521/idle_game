@@ -348,8 +348,11 @@ function main() {
       const creature = sim.creatures.find((c) => c.id === id);
       if (!creature) return;
       creaturePanel.show(id);
-      if (sim.pet(id)) {
+      const petResult = sim.pet(id);
+      if (petResult.petted) {
         scene.spawnHeartEffect(creature.x, creature.y);
+        // 沾染上稀有訪客的瞬間額外冒星星特效，讓玩家立刻感覺到「摸到了不一樣的東西」（見 simulation.ts 的 pet()）。
+        if (petResult.newlyTainted) scene.spawnSparkleEffect(creature.x, creature.y);
       }
       return;
     }
