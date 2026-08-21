@@ -22,13 +22,6 @@ function jitterDuration(base: number): number {
   return base * (0.6 + Math.random() * 0.8);
 }
 
-/** 32-bit 字串雜湊，只用來把生物 id 轉成看起來隨機、但每次算出來都一樣的相位，見 stepCreatures 的耐風搖擺。 */
-function hashString(s: string): number {
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
-
 // 手足外形不同：把連續的 hue（0..360）切成 6 個色系，供「同一對父母生出的子女彼此顏色/外形不重複」判斷用
 // （見 performBreed 的 siblingSignature）。跟外形分類（ShapeCategory）一起組成「顏色+外形」簽章。
 const SIBLING_COLOR_BUCKETS = 6;
@@ -332,19 +325,15 @@ export class Simulation {
         c.vx = 0;
         c.vy = 0;
       } else {
-        // 耐風傾向強的個體額外疊加一點方向搖擺，讓牠們看起來動得比較不規則——用平滑的 sin 波
-        // 隨遊戲時間慢慢偏轉角度，不是每一影格重新擲一次隨機方向。舊寫法每一影格都重新隨機一次，
-        // 而位移量是「方向 × dt」，dt 會隨著玩家選的模擬倍速（例如 20x）放大，等於每影格都在
-        // 「毫無關聯的隨機方向」之間跳來跳去、又跳得更遠，看起來像在抖動，快轉時特別明顯、容易看暈。
-        // 換成平滑波形後，角度隨遊戲時間連續變化，不管倍速多少都只是沿著同一條平滑曲線走得更快，
-        // 不會有相鄰影格方向不連續的瞬間跳動。
-        const windStrength = c.genome.elements.wind;
-        const angle = Math.atan2(c.wanderDirY, c.wanderDirX) + Math.sin(this.time * 1.5 + hashString(c.id)) * windStrength * 0.22;
-        const dirX = Math.cos(angle);
-        const dirY = Math.sin(angle);
+        // 移動方式參考 tsunu-terrarium（github.com/Tsun-u/tsunu-terrarium, MIT）的 sim.js：
+        // 走路方向是「進入這段 wander 時擲一次骰、整段期間固定不變」（見 rollActivity 設定的
+        // wanderDirX/Y），這裡單純把它換算成速度，不再每一影格另外疊加任何角度擾動或波形——
+        // 移動路徑本身就是一段一段的直線，不管開多快的模擬倍速看起來都乾淨俐落，不會有累積的抖動感。
+        // 耐風傾向強的個體改成「比較常重新擲骰換方向」（見 rollActivity 裡 wanderRetargetSeconds
+        // 依 wind 縮短），用「一段一段的直線常常轉彎」表現不安分，而不是連續的抖動波形。
         const maxSpeed = 0.5 * c.genome.visual.speed;
-        c.vx = dirX * maxSpeed;
-        c.vy = dirY * maxSpeed;
+        c.vx = c.wanderDirX * maxSpeed;
+        c.vy = c.wanderDirY * maxSpeed;
       }
 
       c.x += c.vx * dt;
@@ -438,7 +427,10 @@ export class Simulation {
     const angle = Math.random() * Math.PI * 2;
     c.wanderDirX = Math.cos(angle);
     c.wanderDirY = Math.sin(angle);
-    c.activityUntil = this.time + jitterDuration(cfg.wanderRetargetSeconds);
+    // 耐風傾向強的個體比較常重新擲骰換方向（最多快到一半的間隔），走起來一段一段轉彎比較頻繁、
+    // 顯得不安分；wind=0 就完全是原本的節奏，不影響其他生物。
+    const windRetargetMul = 1 - c.genome.elements.wind * 0.5;
+    c.activityUntil = this.time + jitterDuration(cfg.wanderRetargetSeconds * windRetargetMul);
   }
 
   /** 找路過範圍內的裝飾物；喜歡的裝飾物（見 personality.ts 的 favoriteDecor）用放大過的感應半徑找、
