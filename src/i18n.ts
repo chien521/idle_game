@@ -5,12 +5,14 @@ function getCookie(name: string): string {
   return m ? decodeURIComponent(m[1]) : "";
 }
 
-/** 偵測順序：VIVERSE 的 `_htc_lang_code` cookie → `?lang=` 網址參數（本地測試用）→ 瀏覽器語言 → 預設英文。
+/** 偵測順序：VIVERSE 的 `_htc_lang_code` cookie → `?lang=` 網址參數（本地測試用）→ 預設英文。
+ *  故意不看 navigator.language——遊戲預設語言就是英文，只有 VIVERSE 平台明確告知語言（cookie）
+ *  或有人手動用 ?lang= 指定時才會換成其他語言，不會因為玩家瀏覽器/系統語言不同就自動跳成別的語言。
  *  只在頁面載入時算一次，VIVERSE 語言設定要重新整理頁面才會生效（跟 viverse-i18n skill 的行為一致）。 */
 function detectLocale(): Locale {
   const cookieLang = getCookie("_htc_lang_code") || getCookie("lang") || getCookie("language") || getCookie("locale");
   const urlLang = new URLSearchParams(window.location.search).get("lang") || "";
-  const raw = (cookieLang || urlLang || navigator.language || "en").toLowerCase();
+  const raw = (cookieLang || urlLang || "en").toLowerCase();
 
   if (raw === "zh-cn" || raw === "zh-sg" || raw === "zh-hans") return "zh-cn";
   if (raw.startsWith("zh")) return "zh";
