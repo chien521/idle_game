@@ -70,8 +70,9 @@
 
 - **Vite + TypeScript**（strict 模式）
 - **Three.js**：`OrthographicCamera` + `Sprite` / `CanvasTexture`，純程式繪製像素圖，不使用外部美術素材
-- 無後端、無資料庫，存檔以版本化的 JSON 結構存在瀏覽器 `localStorage`，並針對舊版存檔缺少的欄位做相容遷移
+- 存檔以版本化的 JSON 結構存在瀏覽器 `localStorage`，並針對舊版存檔缺少的欄位做相容遷移；登入 VIVERSE 帳號後會額外同步到雲端存檔（見下方）
 - 相機採「以高度為準」的框取策略，直向手機畫面會裁切左右兩側、橫向畫面則會在左右露出黑邊，確保草地與天空永遠完整可見
+- 多語系：`_htc_lang_code`（VIVERSE 語言 cookie）／`?lang=`／瀏覽器語言，支援 繁中／简中／英文／日文／韓文／西班牙文
 
 ## 開發方式
 
@@ -80,3 +81,22 @@ npm install
 npm run dev      # 啟動開發伺服器
 npm run build    # tsc -b && vite build，輸出到 dist/
 ```
+
+本地開發用 `?lang=en`、`?lang=ja`、`?lang=ko`、`?lang=es`、`?lang=zh-CN` 這種網址參數切換語言測試（本機沒有 VIVERSE 的 `_htc_lang_code` cookie，這是官方建議的測試方式）。
+
+VIVERSE 登入/雲端存檔在本機（無 HTTPS、沒有已註冊的 redirect URI）本來就會逾時，程式已經設計成失敗就自動回退成訪客模式，不影響本地開發跟遊玩。
+
+## 發布到 VIVERSE
+
+App ID（`VITE_VIVERSE_CLIENT_ID`）已經寫在 `.env` 裡（不會進版控，`.env.example` 有佔位範本）。以下步驟需要你自己的 VIVERSE 帳號，請自行在瀏覽器完成：
+
+```bash
+npm install -g @viverse/cli
+viverse-cli auth login          # 瀏覽器跳出登入頁，用你的 VIVERSE 帳號登入
+npm run build                   # 產生 dist/，App ID 會在 build 時注入進去
+viverse-cli app publish ./dist --app-id kjkr394chg
+```
+
+發布成功後會回傳一個 `https://worlds.viverse.com/...` 的網址。之後要更新版本，重新 `npm run build` 再跑一次 `viverse-cli app publish` 即可，同一個網址會直接被覆蓋更新。
+
+發布後務必到那個網址實測一次：確認能點擊互動（摸摸/餵食/裝飾放置）、登入按鈕能正常導向 VIVERSE 登入、登入後存檔有正確同步到雲端。

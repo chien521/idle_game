@@ -1,5 +1,6 @@
 import type { Simulation } from "../simulation";
 import { UNLOCKS } from "../unlocks";
+import { t } from "../i18n";
 
 export interface CreaturePanel {
   show: (creatureId: string) => void;
@@ -10,8 +11,8 @@ export interface CreaturePanel {
 
 function formatCompanionship(gameSeconds: number): string {
   const days = gameSeconds / (60 * 60 * 24);
-  if (days < 1) return `${Math.max(1, Math.round(gameSeconds / 60))} 分鐘`;
-  return `${days.toFixed(1)} 天`;
+  if (days < 1) return t("ui.companion.minutes", { n: Math.max(1, Math.round(gameSeconds / 60)) });
+  return t("ui.companion.days", { n: days.toFixed(1) });
 }
 
 /**
@@ -86,8 +87,8 @@ export function mountCreaturePanel(root: HTMLElement, sim: Simulation): Creature
     if (document.activeElement !== nameInput) nameInput.value = creature.name;
     const companionship = sim.time - creature.bornAt;
     const favoriteLabel = UNLOCKS.find((u) => u.decorShape === creature.favoriteDecor)?.label ?? "";
-    info.textContent = `陪伴 ${formatCompanionship(companionship)}${creature.genome.rare ? "　✨ 稀有變異" : ""}${
-      favoriteLabel ? `　💛 最愛：${favoriteLabel}` : ""
+    info.textContent = `${formatCompanionship(companionship)}${creature.genome.rare ? `　${t("creature.rare")}` : ""}${
+      favoriteLabel ? `　${t("creature.favorite", { name: favoriteLabel })}` : ""
     }`;
   }
 

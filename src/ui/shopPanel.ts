@@ -1,6 +1,7 @@
 import type { Simulation } from "../simulation";
 import { UNLOCKS } from "../unlocks";
 import { renderDecorCanvas } from "../render/decorSprite";
+import { t } from "../i18n";
 
 // 圖鑑類的解鎖（稀有變異、四維基因）跟裝飾類分開陳列——那些是「收集成就」，
 // 沒有可以放進場景的東西，混在裝飾清單裡點了也沒反應，容易讓人誤會壞掉；
@@ -47,7 +48,7 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
   const header = document.createElement("div");
   header.style.cssText = "display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;";
   const title = document.createElement("div");
-  title.textContent = "🎁 裝飾收藏";
+  title.textContent = t("shop.title");
   title.style.cssText = "font-size: 15px; font-weight: 700;";
   const closeBtn = document.createElement("button");
   closeBtn.textContent = "✕";
@@ -120,7 +121,7 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
     let placeBtn: HTMLButtonElement | null = null;
     if (unlock.decorShape) {
       placeBtn = document.createElement("button");
-      placeBtn.textContent = "🧭 放置一個";
+      placeBtn.textContent = t("shop.placeOne");
       placeBtn.style.cssText = `
         margin-top: 6px; pointer-events: auto; border: none; border-radius: 8px;
         padding: 6px 10px; font-size: 11px; font-weight: 600; color: #0e1b16;
@@ -152,7 +153,7 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
       opacity: ${met ? "1" : "0.75"};
     `;
     refs.label.textContent = `${met ? "✅" : "🔒"} ${unlock.label}`;
-    refs.desc.textContent = met ? "已解鎖，可無限次擺放" : unlock.progressLabel?.(sim) ?? unlock.description;
+    refs.desc.textContent = met ? t("shop.unlockedDesc") : unlock.progressLabel?.(sim) ?? unlock.description;
     if (refs.placeBtn) refs.placeBtn.style.display = met ? "inline-block" : "none";
   }
 

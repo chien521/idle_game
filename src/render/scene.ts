@@ -317,6 +317,15 @@ export class TerrariumScene {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
 
+    // VIVERSE World 的 iframe 裡，canvas 沒有 tabindex 就完全接收不到滑鼠/觸控事件——
+    // 所有互動（摸摸、餵食、裝飾放置）都是掛在這顆 canvas 上的監聽器，這個沒補上會整個點不動。
+    // 點擊當下再 focus 一次是因為 iframe 外層可能在點擊瞬間搶走 focus，單靠啟動時 focus 不夠。
+    const canvas = this.renderer.domElement;
+    canvas.setAttribute("tabindex", "0");
+    canvas.style.outline = "none";
+    setTimeout(() => canvas.focus(), 100);
+    canvas.addEventListener("pointerdown", () => canvas.focus());
+
     this.viewRect = this.computeViewRect();
     this.camera = new THREE.OrthographicCamera(
       this.viewRect.left,

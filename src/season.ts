@@ -1,4 +1,5 @@
 import { DAY_LENGTH_SECONDS, hourOfGameDay, skyColorsForHour } from "./render/environment";
+import { t } from "./i18n";
 
 /**
  * 季節與天氣：純粹是 sim.time 的函式，不需要任何存檔欄位或持久化狀態——
@@ -13,10 +14,10 @@ const YEAR_LENGTH_SECONDS = SEASON_LENGTH_SECONDS * SEASON_ORDER.length;
 const SEASON_BLEND_FRACTION = 0.15; // 季節交界前這個比例的時間，草地顏色會平滑過渡到下一季，不是硬切換
 
 export const SEASON_LABELS: Record<Season, string> = {
-  spring: "🌱 春",
-  summer: "☀️ 夏",
-  autumn: "🍂 秋",
-  winter: "❄️ 冬",
+  spring: t("season.spring"),
+  summer: t("season.summer"),
+  autumn: t("season.autumn"),
+  winter: t("season.winter"),
 };
 
 /** 草地顏色的季節色調（乘在原本的草地貼圖顏色上，跟晝夜亮暗的 setScalar 是疊乘關係）。 */

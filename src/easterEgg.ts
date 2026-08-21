@@ -1,4 +1,5 @@
 import { DAY_LENGTH_SECONDS } from "./render/environment";
+import { t } from "./i18n";
 
 const CYCLE_SECONDS = DAY_LENGTH_SECONDS * 7; // 大約每 7 個遊戲日一次機會
 const CHANCE = 0.5; // 符合條件的那個週期裡，這個機率真的會出現
@@ -9,10 +10,10 @@ const VISIT_SECONDS = 90; // 出現後大約停留這麼久（遊戲秒），之
 export type VisitorKind = "star-spirit" | "cloud-puff" | "glow-fish" | "shimmer-moth";
 export const VISITOR_KINDS: VisitorKind[] = ["star-spirit", "cloud-puff", "glow-fish", "shimmer-moth"];
 export const VISITOR_LABELS: Record<VisitorKind, string> = {
-  "star-spirit": "星靈",
-  "cloud-puff": "雲朵精",
-  "glow-fish": "螢光魚",
-  "shimmer-moth": "流光蝶",
+  "star-spirit": t("visitor.star-spirit"),
+  "cloud-puff": t("visitor.cloud-puff"),
+  "glow-fish": t("visitor.glow-fish"),
+  "shimmer-moth": t("visitor.shimmer-moth"),
 };
 
 function hashInt(n: number): number {

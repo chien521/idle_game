@@ -1,3 +1,5 @@
+import { t } from "./i18n";
+
 // 元素傾向基因：向陽 / 喜濕 / 耐風 / 向陰，各 0..1 強度（非互斥類別，允許混合傾向）
 export interface ElementTraits {
   sun: number;
@@ -46,11 +48,11 @@ const RARE_SHAPE_M_POOL = [5, 6, 7, 8, 12];
 export type ShapeCategory = "circle" | "triangle" | "square" | "diamond" | "rare";
 export const SHAPE_CATEGORY_ORDER: ShapeCategory[] = ["circle", "triangle", "square", "diamond", "rare"];
 export const SHAPE_CATEGORY_LABELS: Record<ShapeCategory, string> = {
-  circle: "圓形",
-  triangle: "三角",
-  square: "方形",
-  diamond: "菱形",
-  rare: "稀有變異",
+  circle: t("shape.circle"),
+  triangle: t("shape.triangle"),
+  square: t("shape.square"),
+  diamond: t("shape.diamond"),
+  rare: t("shape.rare"),
 };
 const SHAPE_ANCHOR_CATEGORIES: ShapeCategory[] = ["circle", "triangle", "square", "diamond"];
 

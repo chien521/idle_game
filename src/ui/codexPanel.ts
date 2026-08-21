@@ -3,6 +3,7 @@ import { renderCreatureCanvas } from "../render/creatureSprite";
 import { renderVisitorCanvas } from "../render/rareVisitorSprite";
 import { UNLOCKS } from "../unlocks";
 import { VISITOR_KINDS, VISITOR_LABELS, type VisitorKind } from "../easterEgg";
+import { t } from "../i18n";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -177,7 +178,7 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
         border: 1px solid ${met ? "rgba(127,216,176,0.35)" : "rgba(255,255,255,0.08)"};
       `;
       refs.label.textContent = `${met ? "✅" : "🔒"} ${unlock.label}`;
-      refs.desc.textContent = met ? "已解鎖" : unlock.progressLabel?.(sim) ?? unlock.description;
+      refs.desc.textContent = met ? t("codex.unlockedStatus") : unlock.progressLabel?.(sim) ?? unlock.description;
     }
   }
 
@@ -187,7 +188,7 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
   const visitorSection = document.createElement("div");
   visitorSection.style.cssText = "margin-bottom: 16px;";
   const visitorTitle = document.createElement("div");
-  visitorTitle.textContent = "🌟 稀有訪客";
+  visitorTitle.textContent = t("codex.visitorTitle");
   visitorTitle.style.cssText = "font-size: 13px; font-weight: 700; margin-bottom: 8px; opacity: 0.85;";
   visitorSection.appendChild(visitorTitle);
   const visitorGrid = document.createElement("div");
@@ -219,7 +220,7 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
     tile.appendChild(box);
 
     const label = document.createElement("span");
-    label.textContent = discovered ? VISITOR_LABELS[kind] : "？？？";
+    label.textContent = discovered ? VISITOR_LABELS[kind] : t("codex.unknown");
     label.style.cssText = "font-size: 10px; opacity: 0.9; text-align: center; line-height: 1.2;";
     tile.appendChild(label);
 

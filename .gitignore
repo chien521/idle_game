@@ -4,3 +4,5 @@ dist
 *.local
 tsconfig.tsbuildinfo
 螢幕擷取畫面*.png
+.env
+.env.local

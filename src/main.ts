@@ -5,6 +5,7 @@ import {
   deserializeIntoSimulation,
   applyOfflineProgress,
   saveGame,
+  serialize,
   exportSaveToFile,
   importSaveFromJson,
   readUnlockedIds,
@@ -18,6 +19,11 @@ import { mountCreaturePanel } from "./ui/creaturePanel";
 import { makeDecorPlacementId, type DecorPlacement } from "./decor";
 import { seasonForTime, SEASON_LABELS } from "./season";
 import { easterEggStateForTime } from "./easterEgg";
+import { t, locale } from "./i18n";
+import { initViverseAuth, loginToViverse, logoutFromViverse, type ViverseProfile } from "./viverse/auth";
+import { saveToCloud, loadFromCloud, saveBeacon } from "./viverse/storage";
+import { mountProfileChip } from "./ui/profileChip";
+import type { SaveData } from "./save";
 
 const FOUNDER_COUNT = 8;
 const AUTOSAVE_INTERVAL_SECONDS = 20;
@@ -34,12 +40,13 @@ function bootstrapSimulation(): {
   sim: Simulation;
   unlockedIds: Set<string>;
   placements: DecorPlacement[];
+  hadLocalSave: boolean;
 } {
   const existing = readSaveData();
   if (!existing) {
     const sim = new Simulation(DEFAULT_CONFIG);
     sim.seedFounders(FOUNDER_COUNT);
-    return { sim, unlockedIds: new Set(), placements: [] };
+    return { sim, unlockedIds: new Set(), placements: [], hadLocalSave: false };
   }
 
   const sim = deserializeIntoSimulation(existing);
@@ -50,7 +57,7 @@ function bootstrapSimulation(): {
   const elapsedRealMs = Date.now() - existing.savedAtRealMs;
   applyOfflineProgress(sim, elapsedRealMs);
 
-  return { sim, unlockedIds, placements };
+  return { sim, unlockedIds, placements, hadLocalSave: true };
 }
 
 function buildUI(root: HTMLElement) {
@@ -88,7 +95,7 @@ function buildUI(root: HTMLElement) {
   // 拿起裝飾物（移動模式）才會顯示：讓玩家可以直接刪掉拿在手上的這一個實例，
   // 不用透過商店/圖鑑，跟「拿起來→點草地放下」共用同一套拿起狀態，只是多一個出口。
   const deleteDecorButton = document.createElement("button");
-  deleteDecorButton.textContent = "🗑 刪除";
+  deleteDecorButton.textContent = t("ui.btn.delete");
   deleteDecorButton.style.cssText = `
     pointer-events: auto; border: none; border-radius: 8px; padding: 6px 10px;
     font-size: 12px; font-weight: 600; color: #eaf3ee;
@@ -110,13 +117,13 @@ function buildUI(root: HTMLElement) {
   const speedButtons = SPEED_OPTIONS.map((s) => makeButton(`${s}x`));
   speedButtons.forEach((b) => speedRow.appendChild(b));
 
-  const feedButton = makeButton("🍎 餵食", true);
-  const shopButton = makeButton("🎁 收藏");
-  const codexButton = makeButton("📖 圖鑑");
-  const exportButton = makeButton("匯出存檔");
-  const importButton = makeButton("匯入存檔");
-  const screenshotButton = makeButton("📸 截圖");
-  const resetButton = makeButton("🔄 重新開始");
+  const feedButton = makeButton(t("ui.btn.feed"), true);
+  const shopButton = makeButton(t("ui.btn.shop"));
+  const codexButton = makeButton(t("ui.btn.codex"));
+  const exportButton = makeButton(t("ui.btn.export"));
+  const importButton = makeButton(t("ui.btn.import"));
+  const screenshotButton = makeButton(t("ui.btn.screenshot"));
+  const resetButton = makeButton(t("ui.btn.reset"));
 
   // 匯入用的檔案選擇器本身不需要顯示，按 importButton 時用程式觸發它跳出系統選檔視窗即可。
   const importInput = document.createElement("input");
@@ -175,13 +182,16 @@ function makeButton(label: string, primary = false): HTMLButtonElement {
 
 function formatCompanionship(gameSeconds: number): string {
   const days = gameSeconds / (60 * 60 * 24);
-  if (days < 1) return `陪伴 ${Math.max(1, Math.round(gameSeconds / 60))} 分鐘`;
-  return `陪伴 ${days.toFixed(1)} 天`;
+  if (days < 1) return t("ui.companion.minutes", { n: Math.max(1, Math.round(gameSeconds / 60)) });
+  return t("ui.companion.days", { n: days.toFixed(1) });
 }
 
+const HTML_LANG_BY_LOCALE: Record<string, string> = { zh: "zh-Hant", "zh-cn": "zh-Hans", en: "en", ja: "ja", ko: "ko", es: "es" };
+
 function main() {
+  document.documentElement.lang = HTML_LANG_BY_LOCALE[locale] ?? "en";
   const root = document.getElementById("app")!;
-  const { sim, unlockedIds, placements } = bootstrapSimulation();
+  const { sim, unlockedIds, placements, hadLocalSave } = bootstrapSimulation();
   const scene = new TerrariumScene(root, sim);
   scene.setDecor(placements);
   sim.setDecorPlacements(placements);
@@ -191,6 +201,17 @@ function main() {
   // 這段期間要跳過自動存檔，不然 reload() 觸發的 beforeunload 會用「重新整理前的最後狀態」把
   // 剛寫入的新內容蓋回去，玩家會看到畫面完全沒變，跟沒按到按鈕一樣。
   let resetting = false;
+
+  // VIVERSE 登入狀態：只影響雲端存檔要不要跑，遊戲本身完全不等這個 resolve（見下方 initViverseAuth 呼叫）。
+  let authToken: string | null = null;
+  const profileChip = mountProfileChip(root, {
+    onLogin: () => loginToViverse(),
+    onLogout: async () => {
+      await logoutFromViverse();
+      authToken = null;
+      profileChip.setGuest();
+    },
+  });
 
   const shopPanel = mountShopPanel(root, { sim, unlockedIds, onStartPlacing: (unlockId) => startPlacingDecor(unlockId) });
   const codexPanel = mountCodexPanel(root, sim);
@@ -216,11 +237,11 @@ function main() {
     const file = ui.importInput.files?.[0];
     ui.importInput.value = ""; // 清空，不然選同一個檔案兩次不會再觸發 change
     if (!file) return;
-    if (!window.confirm("確定要匯入這份存檔嗎？目前的生態瓶進度會被覆蓋，這個動作無法復原。")) return;
+    if (!window.confirm(t("ui.confirm.import"))) return;
 
     const text = await file.text();
     if (!importSaveFromJson(text)) {
-      window.alert("匯入失敗：檔案內容不是有效的存檔。");
+      window.alert(t("ui.alert.importFailed"));
       return;
     }
     resetting = true;
@@ -256,12 +277,12 @@ function main() {
   const setPlacingDecor = (unlockId: string | null) => {
     placingDecorUnlockId = unlockId;
     movingDecorId = null;
-    setPlacementHint(unlockId ? "🧭 點草地放置" : null);
+    setPlacementHint(unlockId ? t("ui.hint.place") : null);
   };
   const setMovingDecor = (placementId: string | null) => {
     movingDecorId = placementId;
     placingDecorUnlockId = null;
-    setPlacementHint(placementId ? "🧭 點草地移到新位置" : null);
+    setPlacementHint(placementId ? t("ui.hint.move") : null);
     ui.deleteDecorButton.style.display = placementId ? "inline-block" : "none";
     scene.setDraggingDecor(placementId); // 拿起來時變半透明，放下/取消時恢復
   };
@@ -359,7 +380,11 @@ function main() {
     sim.update(realDt * speedMultiplier);
     scene.render();
 
-    ui.stats.textContent = `${SEASON_LABELS[seasonForTime(sim.time)]}　·　🌿 ${sim.creatures.length} 株　·　${formatCompanionship(sim.time)}`;
+    ui.stats.textContent = t("ui.stats", {
+      season: SEASON_LABELS[seasonForTime(sim.time)],
+      count: sim.creatures.length,
+      companion: formatCompanionship(sim.time),
+    });
 
     const newlyUnlocked = computeNewlyUnlocked(sim, unlockedIds);
     for (const unlock of newlyUnlocked) {
@@ -373,6 +398,8 @@ function main() {
 
     if ((now - lastAutosave) / 1000 > AUTOSAVE_INTERVAL_SECONDS) {
       saveGame(sim, unlockedIds, placements);
+      // 雲端存檔用同一個 20 秒節流：best-effort，失敗也不影響本地存檔，不用等它。
+      if (authToken) saveToCloud(authToken, serialize(sim, unlockedIds, placements));
       lastAutosave = now;
     }
 
@@ -387,6 +414,7 @@ function main() {
   const persist = () => {
     if (resetting) return;
     saveGame(sim, unlockedIds, placements);
+    if (authToken) saveBeacon(authToken, serialize(sim, unlockedIds, placements));
   };
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") persist();
@@ -394,11 +422,45 @@ function main() {
   window.addEventListener("beforeunload", persist);
 
   ui.resetButton.addEventListener("click", () => {
-    if (!window.confirm("確定要重新開始嗎？目前的生態瓶（所有寵物、圖鑑紀錄、解鎖進度）都會被清空，這個動作無法復原。")) return;
+    if (!window.confirm(t("ui.confirm.reset"))) return;
     resetting = true;
     clearSaveData();
     window.location.reload();
   });
+
+  // Auth 完全在背景跑，遊戲已經在上面立刻開始了，這裡不會、也不應該卡住任何東西。
+  // resolve 後才決定要不要把本地存檔搬上雲端、或用雲端存檔覆蓋本地（見 mergeAndMaybeReload）。
+  initViverseAuth().then((profile) => onAuthResolved(profile));
+
+  async function onAuthResolved(profile: ViverseProfile): Promise<void> {
+    profileChip.setProfile(profile);
+    if (!profile.isAuthenticated || !profile.accessToken) return;
+    authToken = profile.accessToken;
+    await mergeAndMaybeReload(authToken);
+  }
+
+  /**
+   * 首次登入／換裝置的合併規則：
+   * - 完全沒有本地存檔（這台裝置是全新的、bootstrapSimulation 剛種出 8 隻始祖）：
+   *   本地的 savedAtRealMs 一定是「現在」，用時間比較一定會誤判成本地比較新，
+   *   所以只要雲端有存檔就直接採用雲端，不比時間——這才是「換裝置接續昨天進度」真正生效的情況。
+   * - 本地本來就有真實進度：才用 savedAtRealMs 比大小決定誰是最新版本（同裝置重複登入、
+   *   或兩台裝置都玩過的情況），避免舊的雲端存檔蓋掉裝置上比較新的本地進度。
+   * 兩種情況都是沒有雲端存檔時，直接把本地（訪客期間的進度）上傳，完成 first-login 搬遷。
+   */
+  async function mergeAndMaybeReload(token: string): Promise<void> {
+    const local = serialize(sim, unlockedIds, placements);
+    const cloud = await loadFromCloud<SaveData>(token);
+    if (!cloud) {
+      await saveToCloud(token, local);
+      return;
+    }
+    const cloudIsAuthoritative = !hadLocalSave || (cloud.savedAtRealMs ?? 0) > local.savedAtRealMs;
+    if (cloudIsAuthoritative && importSaveFromJson(JSON.stringify(cloud))) {
+      resetting = true;
+      window.location.reload();
+    }
+  }
 }
 
 main();

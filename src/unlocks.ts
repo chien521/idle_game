@@ -1,6 +1,7 @@
 import type { Simulation } from "./simulation";
 import { seasonForTime, type Season } from "./season";
 import { VISITOR_KINDS } from "./easterEgg";
+import { t } from "./i18n";
 
 export type UnlockType = "decor" | "codex";
 export type DecorShape =
@@ -33,19 +34,24 @@ export interface UnlockDef {
 }
 
 function daysProgressLabel(target: number): (sim: Simulation) => string {
-  return (sim) => `${Math.min(companionDays(sim), target).toFixed(1)} / ${target} 天`;
+  return (sim) => t("progress.days", { value: Math.min(companionDays(sim), target).toFixed(1), n: target });
 }
 
-const SEASON_UNLOCK_LABELS: Record<Season, string> = { spring: "春天", summer: "夏天", autumn: "秋天", winter: "冬天" };
+const SEASON_NAME_KEY: Record<Season, string> = {
+  spring: "seasonName.spring",
+  summer: "seasonName.summer",
+  autumn: "seasonName.autumn",
+  winter: "seasonName.winter",
+};
 
 /** 季節限定裝飾的進度文字：陪伴天數之外，另外標出「現在正是/需等到」該季節——
  *  真正卡進度的通常是季節有沒有輪到，不是陪伴天數（門檻本來就設得很低）。 */
 function seasonalProgressLabel(target: number, season: Season): (sim: Simulation) => string {
   return (sim) => {
-    const dayPart = `${Math.min(companionDays(sim), target).toFixed(1)} / ${target} 天`;
-    const seasonLabel = SEASON_UNLOCK_LABELS[season];
-    const seasonPart = seasonForTime(sim.time) === season ? `現在正是${seasonLabel}` : `需等到${seasonLabel}`;
-    return `${dayPart}　·　${seasonPart}`;
+    const dayPart = t("progress.days", { value: Math.min(companionDays(sim), target).toFixed(1), n: target });
+    const seasonLabel = t(SEASON_NAME_KEY[season]);
+    const seasonPart = t(seasonForTime(sim.time) === season ? "progress.seasonNow" : "progress.seasonWait", { season: seasonLabel });
+    return t("progress.seasonal", { dayPart, seasonPart });
   };
 }
 
@@ -68,178 +74,178 @@ function hasFullElementSpectrum(sim: Simulation): boolean {
 export const UNLOCKS: UnlockDef[] = [
   {
     id: "decor-moss-stone",
-    label: "苔石裝飾",
+    label: t("label.moss-stone"),
     type: "decor",
-    description: "陪伴 1 天",
+    description: t("unlockDesc.days", { n: 1 }),
     isMet: (sim) => companionDays(sim) >= 1,
     progressLabel: daysProgressLabel(1),
     decorShape: "moss-stone",
   },
   {
     id: "decor-campfire",
-    label: "營火",
+    label: t("label.campfire"),
     type: "decor",
-    description: "陪伴 2 天",
+    description: t("unlockDesc.days", { n: 2 }),
     isMet: (sim) => companionDays(sim) >= 2,
     progressLabel: daysProgressLabel(2),
     decorShape: "campfire",
   },
   {
     id: "decor-colored-sand",
-    label: "彩色底沙",
+    label: t("label.colored-sand"),
     type: "decor",
-    description: "陪伴 3 天",
+    description: t("unlockDesc.days", { n: 3 }),
     isMet: (sim) => companionDays(sim) >= 3,
     progressLabel: daysProgressLabel(3),
     decorShape: "colored-sand",
   },
   {
     id: "decor-pond",
-    label: "水池",
+    label: t("label.pond"),
     type: "decor",
-    description: "陪伴 5 天",
+    description: t("unlockDesc.days", { n: 5 }),
     isMet: (sim) => companionDays(sim) >= 5,
     progressLabel: daysProgressLabel(5),
     decorShape: "pond",
   },
   {
     id: "decor-water-wheel",
-    label: "小水車",
+    label: t("label.water-wheel"),
     type: "decor",
-    description: "陪伴 7 天",
+    description: t("unlockDesc.days", { n: 7 }),
     isMet: (sim) => companionDays(sim) >= 7,
     progressLabel: daysProgressLabel(7),
     decorShape: "water-wheel",
   },
   {
     id: "decor-coconut-tree",
-    label: "椰子樹",
+    label: t("label.coconut-tree"),
     type: "decor",
-    description: "陪伴 10 天",
+    description: t("unlockDesc.days", { n: 10 }),
     isMet: (sim) => companionDays(sim) >= 10,
     progressLabel: daysProgressLabel(10),
     decorShape: "coconut-tree",
   },
   {
     id: "codex-rare-variant",
-    label: "稀有變異圖鑑頁",
+    label: t("label.codex-rare-variant"),
     type: "codex",
-    description: "收集 1 隻稀有變異個體",
+    description: t("desc.codex-rare-variant"),
     isMet: (sim) => hasRareCreature(sim),
-    progressLabel: (sim) => (hasRareCreature(sim) ? "已出現" : "尚未出現"),
+    progressLabel: (sim) => t(hasRareCreature(sim) ? "progress.seen" : "progress.notSeen"),
   },
   {
     id: "codex-full-spectrum",
-    label: "四維基因圖鑑",
+    label: t("label.codex-full-spectrum"),
     type: "codex",
-    description: "向陽/喜濕/耐風/向陰皆出現過強烈傾向個體",
+    description: t("desc.codex-full-spectrum"),
     isMet: (sim) => hasFullElementSpectrum(sim),
     progressLabel: (sim) => {
       const seen = sim.seenSpectrum;
       const count = Number(seen.sun) + Number(seen.moisture) + Number(seen.wind) + Number(seen.shade);
-      return `${count} / 4 種傾向已出現`;
+      return t("progress.spectrum", { count });
     },
   },
   {
     id: "codex-rainbow",
-    label: "雨後彩虹",
+    label: t("label.codex-rainbow"),
     type: "codex",
-    description: "春夏雨停後遇到一次彩虹",
+    description: t("desc.codex-rainbow"),
     isMet: (sim) => sim.seenRainbow,
-    progressLabel: (sim) => (sim.seenRainbow ? "已出現" : "尚未出現"),
+    progressLabel: (sim) => t(sim.seenRainbow ? "progress.seen" : "progress.notSeen"),
   },
   {
     id: "codex-meteor-shower",
-    label: "夜空流星雨",
+    label: t("label.codex-meteor-shower"),
     type: "codex",
-    description: "晴朗夜晚遇到一次流星雨",
+    description: t("desc.codex-meteor-shower"),
     isMet: (sim) => sim.seenMeteorShower,
-    progressLabel: (sim) => (sim.seenMeteorShower ? "已出現" : "尚未出現"),
+    progressLabel: (sim) => t(sim.seenMeteorShower ? "progress.seen" : "progress.notSeen"),
   },
   {
     id: "codex-easter-egg",
-    label: "神秘小訪客",
+    label: t("label.codex-easter-egg"),
     type: "codex",
-    description: "點到偶爾飄進生態瓶裡的神秘訪客",
+    description: t("desc.codex-easter-egg"),
     isMet: (sim) => sim.seenVisitorKinds.size > 0,
-    progressLabel: (sim) => `${sim.seenVisitorKinds.size} / ${VISITOR_KINDS.length} 種已發現`,
+    progressLabel: (sim) => t("progress.visitors", { count: sim.seenVisitorKinds.size, total: VISITOR_KINDS.length }),
   },
   {
     id: "mechanic-greenhouse-expansion",
-    label: "迷你溫室擴建",
+    label: t("label.greenhouse"),
     type: "decor",
-    description: "陪伴 14 天（容納上限 +5）",
+    description: t("unlockDesc.greenhouse", { n: 14 }),
     isMet: (sim) => companionDays(sim) >= 14,
     progressLabel: daysProgressLabel(14),
   },
   {
     id: "decor-stone-lantern",
-    label: "石燈籠",
+    label: t("label.stone-lantern"),
     type: "decor",
-    description: "陪伴 30 天",
+    description: t("unlockDesc.days", { n: 30 }),
     isMet: (sim) => companionDays(sim) >= 30,
     progressLabel: daysProgressLabel(30),
     decorShape: "stone-lantern",
   },
   {
     id: "decor-garden-gazebo",
-    label: "小涼亭",
+    label: t("label.garden-gazebo"),
     type: "decor",
-    description: "陪伴 60 天",
+    description: t("unlockDesc.days", { n: 60 }),
     isMet: (sim) => companionDays(sim) >= 60,
     progressLabel: daysProgressLabel(60),
     decorShape: "garden-gazebo",
   },
   {
     id: "decor-wishing-fountain",
-    label: "許願噴泉",
+    label: t("label.wishing-fountain"),
     type: "decor",
-    description: "陪伴 120 天",
+    description: t("unlockDesc.days", { n: 120 }),
     isMet: (sim) => companionDays(sim) >= 120,
     progressLabel: daysProgressLabel(120),
     decorShape: "wishing-fountain",
   },
   {
     id: "decor-ancient-tree",
-    label: "巨型古樹",
+    label: t("label.ancient-tree"),
     type: "decor",
-    description: "陪伴 240 天",
+    description: t("unlockDesc.days", { n: 240 }),
     isMet: (sim) => companionDays(sim) >= 240,
     progressLabel: daysProgressLabel(240),
     decorShape: "ancient-tree",
   },
   {
     id: "decor-cherry-blossom",
-    label: "櫻花盆栽",
+    label: t("label.cherry-blossom"),
     type: "decor",
-    description: "陪伴 2 天，且逢春天",
+    description: t("unlockDesc.seasonal", { n: 2, season: t(SEASON_NAME_KEY.spring) }),
     isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "spring",
     progressLabel: seasonalProgressLabel(2, "spring"),
     decorShape: "cherry-blossom",
   },
   {
     id: "decor-beach-umbrella",
-    label: "遮陽傘",
+    label: t("label.beach-umbrella"),
     type: "decor",
-    description: "陪伴 2 天，且逢夏天",
+    description: t("unlockDesc.seasonal", { n: 2, season: t(SEASON_NAME_KEY.summer) }),
     isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "summer",
     progressLabel: seasonalProgressLabel(2, "summer"),
     decorShape: "beach-umbrella",
   },
   {
     id: "decor-pumpkin-lantern",
-    label: "南瓜燈",
+    label: t("label.pumpkin-lantern"),
     type: "decor",
-    description: "陪伴 2 天，且逢秋天",
+    description: t("unlockDesc.seasonal", { n: 2, season: t(SEASON_NAME_KEY.autumn) }),
     isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "autumn",
     progressLabel: seasonalProgressLabel(2, "autumn"),
     decorShape: "pumpkin-lantern",
   },
   {
     id: "decor-snowman",
-    label: "雪人",
+    label: t("label.snowman"),
     type: "decor",
-    description: "陪伴 2 天，且逢冬天",
+    description: t("unlockDesc.seasonal", { n: 2, season: t(SEASON_NAME_KEY.winter) }),
     isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "winter",
     progressLabel: seasonalProgressLabel(2, "winter"),
     decorShape: "snowman",
