@@ -183,6 +183,12 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "progress.notSeen": "尚未出現",
     "progress.spectrum": "{count} / 4 種傾向已出現",
     "progress.visitors": "{count} / {total} 種已發現",
+
+    "mechanic.campfire": "🔥 偶爾會燒得更亮一些",
+    "mechanic.pond": "🌊 水位會週期性上漲，範圍略微擴大",
+    "mechanic.coconut-tree": "🌱 種下後約 3 個遊戲日會長到全高",
+    "mechanic.cherry-blossom": "🌱 種下後約 3 個遊戲日會長到全高",
+    "mechanic.snowman": "❄️ 冬天以外的季節會稍微融化變小，冬天恢復雪白",
   },
 
   "zh-cn": {
@@ -298,6 +304,12 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "progress.notSeen": "尚未出现",
     "progress.spectrum": "{count} / 4 种倾向已出现",
     "progress.visitors": "{count} / {total} 种已发现",
+
+    "mechanic.campfire": "🔥 偶尔会烧得更亮一些",
+    "mechanic.pond": "🌊 水位会周期性上涨，范围略微扩大",
+    "mechanic.coconut-tree": "🌱 种下后约 3 个游戏日会长到全高",
+    "mechanic.cherry-blossom": "🌱 种下后约 3 个游戏日会长到全高",
+    "mechanic.snowman": "❄️ 冬天以外的季节会稍微融化变小，冬天恢复雪白",
   },
 
   en: {
@@ -413,6 +425,12 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "progress.notSeen": "Not seen yet",
     "progress.spectrum": "{count} / 4 leanings seen",
     "progress.visitors": "{count} / {total} kinds found",
+
+    "mechanic.campfire": "🔥 flares up brighter every once in a while",
+    "mechanic.pond": "🌊 water level rises and falls, growing slightly bigger sometimes",
+    "mechanic.coconut-tree": "🌱 takes about 3 game days to grow to full size",
+    "mechanic.cherry-blossom": "🌱 takes about 3 game days to grow to full size",
+    "mechanic.snowman": "❄️ melts down a bit outside winter, turns fully white again when winter returns",
   },
 
   ja: {
@@ -528,6 +546,12 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "progress.notSeen": "まだ未確認",
     "progress.spectrum": "{count} / 4 傾向を確認",
     "progress.visitors": "{count} / {total} 種類を発見",
+
+    "mechanic.campfire": "🔥 たまに一段と明るく燃え上がる",
+    "mechanic.pond": "🌊 水位が周期的に上がり、少し広がることがある",
+    "mechanic.coconut-tree": "🌱 植えてから約3ゲーム日で成木になる",
+    "mechanic.cherry-blossom": "🌱 植えてから約3ゲーム日で成木になる",
+    "mechanic.snowman": "❄️ 冬以外は少し溶け、冬になるとまた真っ白に戻る",
   },
 
   ko: {
@@ -643,6 +667,12 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "progress.notSeen": "아직 미확인",
     "progress.spectrum": "{count} / 4 성향 확인됨",
     "progress.visitors": "{count} / {total} 종류 발견",
+
+    "mechanic.campfire": "🔥 가끔씩 더 환하게 타올라요",
+    "mechanic.pond": "🌊 수위가 주기적으로 올라가며 살짝 넓어져요",
+    "mechanic.coconut-tree": "🌱 심고 나서 약 3 게임일이면 다 자라요",
+    "mechanic.cherry-blossom": "🌱 심고 나서 약 3 게임일이면 다 자라요",
+    "mechanic.snowman": "❄️ 겨울이 아니면 조금 녹고, 겨울이 되면 다시 새하얘져요",
   },
 
   es: {
@@ -758,5 +788,11 @@ const LOCALES: Record<Locale, Record<string, string>> = {
     "progress.notSeen": "Aún no visto",
     "progress.spectrum": "{count} / 4 tendencias vistas",
     "progress.visitors": "{count} / {total} tipos encontrados",
+
+    "mechanic.campfire": "🔥 brilla con más fuerza de forma intermitente",
+    "mechanic.pond": "🌊 el nivel del agua sube y baja, se agranda un poco a veces",
+    "mechanic.coconut-tree": "🌱 tarda unos 3 días de juego en crecer del todo",
+    "mechanic.cherry-blossom": "🌱 tarda unos 3 días de juego en crecer del todo",
+    "mechanic.snowman": "❄️ se derrite fuera del invierno y vuelve a estar blanco cuando regresa",
   },
 };

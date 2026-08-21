@@ -31,7 +31,8 @@ import {
   seasonForTime,
 } from "../season";
 
-const COCONUT_GROWTH_SECONDS = DAY_LENGTH_SECONDS * 3; // 椰子樹種下後約 3 個遊戲日長到全高
+const TREE_GROWTH_SECONDS = DAY_LENGTH_SECONDS * 3; // 椰子樹／櫻花樹種下後約 3 個遊戲日長到全高
+const TREE_GROWTH_SHAPES: ReadonlySet<DecorShape> = new Set(["coconut-tree", "cherry-blossom"]);
 const POND_FLOOD_CYCLE_SECONDS = DAY_LENGTH_SECONDS * 3; // 每個水池自己約 3 個遊戲日一個週期，錯開的相位讓不同水池不會同時氾濫
 const POND_FLOOD_WINDOW_FRACTION = 0.12; // 週期裡氾濫窗口佔的比例，其餘時間都是平靜水面
 const SPLASH_CHANCE_PER_FRAME = 0.012; // 每個在池塘邊的生物、每一影格冒出水花的機率，約每 1~2 秒一次
@@ -647,10 +648,10 @@ export class TerrariumScene {
       const shape = decorShapeForUnlockId(placement.unlockId);
       const material = sprite.material as THREE.SpriteMaterial;
 
-      if (shape === "coconut-tree") {
+      if (shape && TREE_GROWTH_SHAPES.has(shape)) {
         const age = this.sim.time - placement.plantedAt;
-        const growth = Math.max(0, Math.min(1, age / COCONUT_GROWTH_SECONDS));
-        const fullScale = decorScaleFor("coconut-tree");
+        const growth = Math.max(0, Math.min(1, age / TREE_GROWTH_SECONDS));
+        const fullScale = decorScaleFor(shape);
         const scale = fullScale * (0.55 + growth * 0.65); // 幼苗約 55% 大小，長到全高後是原本的 1.2 倍
         sprite.scale.set(scale, scale, 1);
         // 正在被拿起來拖曳移動的這一株，y 交給 dragDecorTo 即時跟著游標走，這裡不要每影格蓋回舊位置。
@@ -676,6 +677,19 @@ export class TerrariumScene {
         material.color.setRGB(1, warmth, warmth * 0.7);
         if (Math.random() < CAMPFIRE_AMBIENT_MIST_CHANCE_PER_FRAME) {
           this.spawnMistEffect(placement.x, placement.y + scale * 0.3);
+        }
+      } else if (shape === "snowman") {
+        // 原地融化/結凍，但不會真的消失：冬天以外的季節縮小、偏灰濕，冬天恢復雪白全尺寸。
+        // 跟樹木長大用同一招「錨點往下修正」讓縮小時看起來像矮下去，不是懸空縮小。
+        const isWinter = seasonForTime(this.sim.time) === "winter";
+        const fullScale = decorScaleFor("snowman");
+        const sizeFactor = isWinter ? 1 : 0.82;
+        const scale = fullScale * sizeFactor;
+        sprite.scale.set(scale, scale, 1);
+        material.opacity = isWinter ? 1 : 0.7;
+        material.color.setRGB(isWinter ? 1 : 0.85, isWinter ? 1 : 0.88, isWinter ? 1 : 0.85); // 融化時偏灰濕，不是純白
+        if (this.draggingDecorId !== placement.id) {
+          sprite.position.y = placement.y - fullScale * 0.5 * (1 - sizeFactor);
         }
       }
     }

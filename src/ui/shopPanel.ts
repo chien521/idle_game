@@ -81,6 +81,7 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
     row: HTMLElement;
     label: HTMLSpanElement;
     desc: HTMLDivElement;
+    mechanic: HTMLDivElement;
     placeBtn: HTMLButtonElement | null;
   }
 
@@ -118,6 +119,12 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
     desc.style.cssText = "font-size: 11px; opacity: 0.7; margin-top: 3px;";
     body.appendChild(desc);
 
+    // 這個裝飾物特有的動態機制（例如會長大、會偶爾氾濫），未解鎖前也顯示——讓玩家先知道
+    // 解鎖之後這個東西「會做什麼」，不用等真的放進場景才發現它其實不是靜態的擺設。
+    const mechanic = document.createElement("div");
+    mechanic.style.cssText = "font-size: 11px; opacity: 0.6; margin-top: 2px; font-style: italic; display: none;";
+    body.appendChild(mechanic);
+
     let placeBtn: HTMLButtonElement | null = null;
     if (unlock.decorShape) {
       placeBtn = document.createElement("button");
@@ -135,7 +142,7 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
     }
 
     list.appendChild(row);
-    return { row, label, desc, placeBtn };
+    return { row, label, desc, mechanic, placeBtn };
   }
 
   function updateRow(unlock: (typeof DECOR_UNLOCKS)[number]): void {
@@ -154,6 +161,8 @@ export function mountShopPanel(root: HTMLElement, { sim, unlockedIds, onStartPla
     `;
     refs.label.textContent = `${met ? "✅" : "🔒"} ${unlock.label}`;
     refs.desc.textContent = met ? t("shop.unlockedDesc") : unlock.progressLabel?.(sim) ?? unlock.description;
+    refs.mechanic.style.display = unlock.mechanic ? "block" : "none";
+    if (unlock.mechanic) refs.mechanic.textContent = unlock.mechanic;
     if (refs.placeBtn) refs.placeBtn.style.display = met ? "inline-block" : "none";
   }
 

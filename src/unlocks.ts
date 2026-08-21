@@ -31,6 +31,9 @@ export interface UnlockDef {
   progressLabel?: (sim: Simulation) => string;
   /** 有值代表這是可以實際放進生態瓶的裝飾物；決定場景要畫哪種簡易造型。 */
   decorShape?: DecorShape;
+  /** 這個裝飾物特有的動態機制說明（例如「會長大」「偶爾氾濫」），只有真的有隨時間變化的種類才填；
+   *  沒有值代表放下去之後就是靜態擺著，商店面板不會多顯示這一行。 */
+  mechanic?: string;
 }
 
 function daysProgressLabel(target: number): (sim: Simulation) => string {
@@ -89,6 +92,7 @@ export const UNLOCKS: UnlockDef[] = [
     isMet: (sim) => companionDays(sim) >= 2,
     progressLabel: daysProgressLabel(2),
     decorShape: "campfire",
+    mechanic: t("mechanic.campfire"),
   },
   {
     id: "decor-colored-sand",
@@ -107,6 +111,7 @@ export const UNLOCKS: UnlockDef[] = [
     isMet: (sim) => companionDays(sim) >= 5,
     progressLabel: daysProgressLabel(5),
     decorShape: "pond",
+    mechanic: t("mechanic.pond"),
   },
   {
     id: "decor-water-wheel",
@@ -125,6 +130,7 @@ export const UNLOCKS: UnlockDef[] = [
     isMet: (sim) => companionDays(sim) >= 10,
     progressLabel: daysProgressLabel(10),
     decorShape: "coconut-tree",
+    mechanic: t("mechanic.coconut-tree"),
   },
   {
     id: "codex-rare-variant",
@@ -230,6 +236,7 @@ export const UNLOCKS: UnlockDef[] = [
     isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "spring",
     progressLabel: seasonalProgressLabel(2, "spring"),
     decorShape: "cherry-blossom",
+    mechanic: t("mechanic.cherry-blossom"),
   },
   {
     id: "decor-beach-umbrella",
@@ -257,6 +264,7 @@ export const UNLOCKS: UnlockDef[] = [
     isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "winter",
     progressLabel: seasonalProgressLabel(2, "winter"),
     decorShape: "snowman",
+    mechanic: t("mechanic.snowman"),
   },
 ];
 
