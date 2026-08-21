@@ -71,14 +71,16 @@ const DECOR_SPRITE_SCALE = 3.2; // 裝飾物視覺大小的基準值，實際大
 // 水池/水車/里程碑地標裝飾（噴泉/涼亭/古樹）的倍率也同步乘 2，維持跟寵物、跟彼此之間原本的相對大小關係。
 // 椰子樹、營火是使用者已經直接指定過最終大小的，這裡不跟著調整，維持原樣。
 const DECOR_SCALE_MULTIPLIER: Partial<Record<DecorShape, number>> = {
-  pond: 6,
+  pond: 7.5, // 使用者要求放大 1.25 倍（原本 6）
   "water-wheel": 3, // 使用者要求縮小一半（原本跟水池同為 6）
   "wishing-fountain": 5.2,
   "garden-gazebo": 4.8,
   "ancient-tree": 5.6,
   "coconut-tree": 10,
   campfire: 2.5,
-  "beach-umbrella": 7.5, // 使用者要求：椰子樹（10 倍）的 0.75 倍
+  "beach-umbrella": 5.625, // 使用者要求再縮小 0.75 倍（原本是椰子樹 10 倍的 0.75 倍＝7.5）
+  snowman: 3.5, // 使用者反應太小，調大於預設值 2
+  "cherry-blossom": 3.5, // 使用者反應太小，調大於預設值 2
 };
 function decorScaleFor(shape: DecorShape | undefined): number {
   // 沒特別列在 DECOR_SCALE_MULTIPLIER 裡的種類（苔石、彩色底沙、石燈籠、四季限定裝飾……）預設倍率是 2，

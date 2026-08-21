@@ -89,19 +89,25 @@ function drawCampfire(ctx: CanvasRenderingContext2D): void {
 }
 
 function drawPond(ctx: CanvasRenderingContext2D): void {
-  fillPixelEllipse(ctx, 8, 11, 7, 3.4, "#3f7fae");
-  fillPixelEllipse(ctx, 8, 10.4, 6, 2.7, "#5aa0cf");
-  fillPixelEllipse(ctx, 6, 9.8, 1.8, 0.9, "#8fc7e8"); // 水面反光
+  // 重新設計：拿掉兩側像柵欄的蘆葦直線，水面本身加大填滿畫布，
+  // 改用一片睡蓮葉＋幾圈漣漪讓水面有東西可看，不會太單調。
+  fillPixelEllipse(ctx, 8, 10.5, 7.6, 4.3, "#3f7fae");
+  fillPixelEllipse(ctx, 8, 10, 6.6, 3.5, "#5aa0cf");
+  fillPixelEllipse(ctx, 5.5, 8.8, 2, 1, "#8fc7e8"); // 水面反光
 
-  ctx.fillStyle = "#5f9e4a";
-  for (const [dx, dy] of [
-    [2, 9],
-    [3, 8],
-    [13, 9],
-    [12, 8],
-  ] as const) {
-    drawPixelLine(ctx, dx, dy, dx, dy - 3, "#5f9e4a"); // 岸邊蘆葦
-  }
+  // 睡蓮葉：圓餅咬一角的經典剪影，浮在水面右側
+  ctx.fillStyle = "#4f9a4a";
+  fillPixelEllipse(ctx, 11.5, 11.5, 1.7, 1.1, "#4f9a4a");
+  ctx.fillStyle = "#3f7fae";
+  ctx.fillRect(12, 11, 1, 1);
+  ctx.fillStyle = "#6bb85f";
+  fillPixelEllipse(ctx, 11.2, 11.2, 0.6, 0.4, "#6bb85f"); // 葉片上的一點高光
+
+  // 左側幾圈淡淡的漣漪
+  ctx.fillStyle = "#8fc7e8";
+  ctx.fillRect(3, 12, 2, 1);
+  ctx.fillRect(2, 11, 1, 1);
+  ctx.fillRect(4, 13, 1, 1);
 }
 
 /** 畫一片下垂的羽狀葉：沿著離開樹冠中心的方向前進，同時逐漸往下垂（droop），
