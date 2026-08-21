@@ -1,4 +1,5 @@
 import type { Simulation } from "../simulation";
+import { UNLOCKS } from "../unlocks";
 
 export interface CreaturePanel {
   show: (creatureId: string) => void;
@@ -84,7 +85,10 @@ export function mountCreaturePanel(root: HTMLElement, sim: Simulation): Creature
     }
     if (document.activeElement !== nameInput) nameInput.value = creature.name;
     const companionship = sim.time - creature.bornAt;
-    info.textContent = `陪伴 ${formatCompanionship(companionship)}${creature.genome.rare ? "　✨ 稀有變異" : ""}`;
+    const favoriteLabel = UNLOCKS.find((u) => u.decorShape === creature.favoriteDecor)?.label ?? "";
+    info.textContent = `陪伴 ${formatCompanionship(companionship)}${creature.genome.rare ? "　✨ 稀有變異" : ""}${
+      favoriteLabel ? `　💛 最愛：${favoriteLabel}` : ""
+    }`;
   }
 
   function show(creatureId: string): void {

@@ -1,56 +1,6 @@
 import * as THREE from "three";
-import { easterEggStateForTime } from "../easterEgg";
-
-function fillPixelEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, color: string): void {
-  ctx.fillStyle = color;
-  for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) {
-    for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++) {
-      const nx = (x + 0.5 - cx) / rx;
-      const ny = (y + 0.5 - cy) / ry;
-      if (nx * nx + ny * ny <= 1) ctx.fillRect(x, y, 1, 1);
-    }
-  }
-}
-
-/**
- * 彩蛋訪客的外觀：刻意跟一般靠基因長出來的 superformula 生物完全不同——四角星形的小精靈，
- * 淡紫底、亮黃星芒點綴、一對圓滾滾的大眼睛，一眼就能看出「這不是普通寵物」。
- */
-function createSpiritTexture(): THREE.CanvasTexture {
-  const size = 16;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d")!;
-  ctx.imageSmoothingEnabled = false;
-
-  // 四角星身體（十字形疊菱形）
-  ctx.fillStyle = "#c9a2f0";
-  ctx.fillRect(6, 2, 4, 12);
-  ctx.fillRect(2, 6, 12, 4);
-  fillPixelEllipse(ctx, 8, 8, 4, 4, "#c9a2f0");
-
-  // 星芒尖角提亮
-  ctx.fillStyle = "#e8d4ff";
-  ctx.fillRect(7, 2, 2, 3);
-  ctx.fillRect(7, 11, 2, 3);
-  ctx.fillRect(2, 7, 3, 2);
-  ctx.fillRect(11, 7, 3, 2);
-
-  // 大眼睛
-  ctx.fillStyle = "#2a1f3a";
-  ctx.fillRect(6, 7, 2, 3);
-  ctx.fillRect(9, 7, 2, 3);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(6, 7, 1, 1);
-  ctx.fillRect(9, 7, 1, 1);
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.magFilter = THREE.NearestFilter;
-  texture.minFilter = THREE.NearestFilter;
-  texture.generateMipmaps = false;
-  return texture;
-}
+import { easterEggStateForTime, VISITOR_KINDS, type VisitorKind } from "../easterEgg";
+import { createVisitorTexture } from "./rareVisitorSprite";
 
 /** 訪客身後柔和的光暈，暗示牠是會發光的神奇小東西，不是普通生物。 */
 function createHaloTexture(): THREE.CanvasTexture {
@@ -95,6 +45,9 @@ export class EasterEggLayer {
   private visible = false;
   private worldX = 0;
   private worldY = 0;
+  private currentKind: VisitorKind | null = null;
+  // 每種訪客的貼圖各自只建一次、快取起來，出現時依 state.kind 換貼圖即可，不用每次重新畫 canvas。
+  private textures = new Map<VisitorKind, THREE.CanvasTexture>(VISITOR_KINDS.map((k) => [k, createVisitorTexture(k)]));
 
   constructor(scene: THREE.Scene) {
     const haloMaterial = new THREE.SpriteMaterial({ map: createHaloTexture(), transparent: true, opacity: 0 });
@@ -102,7 +55,7 @@ export class EasterEggLayer {
     this.halo.visible = false;
     scene.add(this.halo);
 
-    const spiritMaterial = new THREE.SpriteMaterial({ map: createSpiritTexture(), transparent: true });
+    const spiritMaterial = new THREE.SpriteMaterial({ map: this.textures.get("star-spirit"), transparent: true });
     this.sprite = new THREE.Sprite(spiritMaterial);
     this.sprite.visible = false;
     scene.add(this.sprite);
@@ -113,7 +66,15 @@ export class EasterEggLayer {
     this.visible = state.visible;
     this.sprite.visible = state.visible;
     this.halo.visible = state.visible;
-    if (!state.visible) return;
+    if (!state.visible) {
+      this.currentKind = null;
+      return;
+    }
+    if (this.currentKind !== state.kind) {
+      this.currentKind = state.kind;
+      (this.sprite.material as THREE.SpriteMaterial).map = this.textures.get(state.kind) ?? null;
+      (this.sprite.material as THREE.SpriteMaterial).needsUpdate = true;
+    }
 
     const t = state.progress * Math.PI * 2 * 2.5; // 停留期間繞著晃個幾圈，不是走直線穿場
     const nx = 0.5 + 0.32 * Math.sin(t * 1.3);

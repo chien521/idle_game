@@ -3,7 +3,7 @@ import type { Simulation } from "../simulation";
 import type { Creature } from "../creature";
 import { createCreatureTexture } from "./creatureSprite";
 import { createDecorTexture } from "./decorSprite";
-import { UNLOCKS, type DecorShape } from "../unlocks";
+import { decorShapeForUnlockId, type DecorShape } from "../unlocks";
 import type { DecorPlacement } from "../decor";
 import {
   createGrassTexture,
@@ -31,13 +31,15 @@ import {
   seasonForTime,
 } from "../season";
 
-const DECOR_SHAPE_BY_UNLOCK_ID = new Map(UNLOCKS.filter((u) => u.decorShape).map((u) => [u.id, u.decorShape!]));
-
 const COCONUT_GROWTH_SECONDS = DAY_LENGTH_SECONDS * 3; // 椰子樹種下後約 3 個遊戲日長到全高
 const POND_FLOOD_CYCLE_SECONDS = DAY_LENGTH_SECONDS * 3; // 每個水池自己約 3 個遊戲日一個週期，錯開的相位讓不同水池不會同時氾濫
 const POND_FLOOD_WINDOW_FRACTION = 0.12; // 週期裡氾濫窗口佔的比例，其餘時間都是平靜水面
 const SPLASH_CHANCE_PER_FRAME = 0.012; // 每個在池塘邊的生物、每一影格冒出水花的機率，約每 1~2 秒一次
 const MIST_CHANCE_PER_FRAME = 0.01; // 每個在營火邊的生物、每一影格冒出白霧的機率，約每 1.5~2 秒一次
+const CAMPFIRE_AMBIENT_MIST_CHANCE_PER_FRAME = 0.006; // 營火本身持續飄的白煙，不需要寵物在旁邊也會冒，頻率比寵物取暖時稍低一點
+const CAMPFIRE_GLOW_CYCLE_SECONDS = 2.6; // 每隔約這麼久亮一次，不是持續平滑的忽明忽暗
+const CAMPFIRE_GLOW_WINDOW_FRACTION = 0.4; // 一次發光佔週期的比例，其餘時間維持平常亮度
+const FAVORITE_HEART_CHANCE_PER_FRAME = 0.008; // 生物逗留在「最愛」的裝飾物旁時，偶爾冒愛心，讓個性偏好行為看得出來
 
 function hashString(s: string): number {
   let h = 0;
@@ -62,12 +64,26 @@ const SKY_BAND_FRACTION = 0.4; // 地面高度以上額外留給天空的比例
 // 部分直接露出畫布背景色（黑邊），不刻意延伸草地去填滿——比起讓草地看起來比寵物走得到的
 // 範圍還寬（那樣才是真正的「隱形邊界」），黑邊在視覺上是清楚可辨的「這裡不是世界」。
 
-const CREATURE_SPRITE_SCALE = 5; // 純視覺放大倍率，跟 genome.visual.size（影響繁殖判定等邏輯無關）分開，只影響畫面看起來多大
-const DECOR_SPRITE_SCALE = 3.2; // 裝飾物視覺大小，跟中型生物（size≈1 時約 5）比例相近，避免放到草地上小到看不清楚
-// 水池、水車放大 3 倍——這兩種本來就是「地標型」裝飾，維持跟其他裝飾一樣的基準大小比例上不對。
-const DECOR_SCALE_MULTIPLIER: Partial<Record<DecorShape, number>> = { pond: 3, "water-wheel": 3 };
+const CREATURE_SPRITE_SCALE = 7.5; // 純視覺放大倍率，跟 genome.visual.size（影響繁殖判定等邏輯無關）分開，只影響畫面看起來多大
+const DECOR_SPRITE_SCALE = 3.2; // 裝飾物視覺大小的基準值，實際大小是這個乘上 DECOR_SCALE_MULTIPLIER（見下方）
+// 寵物放大成兩倍（CREATURE_SPRITE_SCALE 5→10）之後，原本沒被使用者特別點名調整過的裝飾物
+// 相對比例全部變小了一半，這裡統一補回去：預設倍率從 1→2（見 decorScaleFor 的 fallback），
+// 水池/水車/里程碑地標裝飾（噴泉/涼亭/古樹）的倍率也同步乘 2，維持跟寵物、跟彼此之間原本的相對大小關係。
+// 椰子樹、營火是使用者已經直接指定過最終大小的，這裡不跟著調整，維持原樣。
+const DECOR_SCALE_MULTIPLIER: Partial<Record<DecorShape, number>> = {
+  pond: 6,
+  "water-wheel": 3, // 使用者要求縮小一半（原本跟水池同為 6）
+  "wishing-fountain": 5.2,
+  "garden-gazebo": 4.8,
+  "ancient-tree": 5.6,
+  "coconut-tree": 10,
+  campfire: 2.5,
+  "beach-umbrella": 7.5, // 使用者要求：椰子樹（10 倍）的 0.75 倍
+};
 function decorScaleFor(shape: DecorShape | undefined): number {
-  return DECOR_SPRITE_SCALE * (shape ? (DECOR_SCALE_MULTIPLIER[shape] ?? 1) : 1);
+  // 沒特別列在 DECOR_SCALE_MULTIPLIER 裡的種類（苔石、彩色底沙、石燈籠、四季限定裝飾……）預設倍率是 2，
+  // 不是 1——原本的 1 倍是對應寵物還沒放大時的比例，寵物放大兩倍後改用 2 倍才維持得住原本的相對大小。
+  return DECOR_SPRITE_SCALE * (shape ? (DECOR_SCALE_MULTIPLIER[shape] ?? 2) : 1);
 }
 // 草地紋理一塊貼圖對應幾個世界單位：場地現在有 96×56 那麼大，如果 1 貼圖 = 1 世界單位，
 // 換算到螢幕上一塊草地磚常常不到 1px，草叢圖案（見 environment.ts 的 drawTuft）會糊成看不出形狀。
@@ -295,7 +311,9 @@ export class TerrariumScene {
   constructor(container: HTMLElement, private sim: Simulation) {
     this.container = container;
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    // preserveDrawingBuffer：截圖功能（見 screenshotDataUrl）需要在畫完之後任何時間點都還能讀到畫面內容，
+    // 不然瀏覽器合成畫面後可能已經清空/交換掉繪圖緩衝區，直接 toDataURL() 會抓到空白或不穩定的結果。
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.appendChild(this.renderer.domElement);
 
@@ -492,8 +510,14 @@ export class TerrariumScene {
     sprite.scale.set(baseScale, baseScale, 1);
 
     if (creature.activity !== "decor" || !creature.activityTargetId) return;
-    const shape = DECOR_SHAPE_BY_UNLOCK_ID.get(creature.activityTargetId);
+    const shape = decorShapeForUnlockId(creature.activityTargetId);
     const t = this.sim.time;
+
+    // 個性偏好（見 personality.ts）：逗留在自己最愛的裝飾物旁時，偶爾冒愛心，讓偏好行為在畫面上看得出來。
+    if (shape === creature.favoriteDecor && Math.random() < FAVORITE_HEART_CHANCE_PER_FRAME) {
+      this.spawnHeartEffect(sprite.position.x, sprite.position.y + baseScale * 0.3);
+    }
+
     if (shape === "moss-stone") {
       sprite.scale.set(baseScale, baseScale * 0.88, 1);
       sprite.position.y -= baseScale * 0.06;
@@ -512,8 +536,15 @@ export class TerrariumScene {
       if (Math.random() < SPLASH_CHANCE_PER_FRAME) {
         this.spawnSplashEffect(sprite.position.x, sprite.position.y - baseScale * 0.25);
       }
-    } else if (shape === "coconut-tree") {
+    } else if (shape === "coconut-tree" || shape === "ancient-tree") {
       material.rotation = Math.sin(t * 1.5) * 0.06;
+    } else if (shape === "wishing-fountain") {
+      sprite.position.y += Math.sin(t * 4 + creaturePhase(creature.id)) * baseScale * 0.04;
+      if (Math.random() < SPLASH_CHANCE_PER_FRAME) {
+        this.spawnSplashEffect(sprite.position.x, sprite.position.y - baseScale * 0.2);
+      }
+    } else if (shape === "garden-gazebo") {
+      material.rotation = Math.sin(t * 2 + creaturePhase(creature.id)) * 0.03;
     }
   }
 
@@ -550,7 +581,7 @@ export class TerrariumScene {
       this.zzzSprites.set(creature.id, zzz);
     }
     const baseScale = creature.genome.visual.size * CREATURE_SPRITE_SCALE;
-    zzz.scale.set(baseScale * 0.45, baseScale * 0.45, 1);
+    zzz.scale.set(baseScale * 0.225, baseScale * 0.225, 1); // 使用者要求縮小成原本的 0.5 倍（原本是 0.45）
     const bob = Math.sin(this.sim.time * 2) * baseScale * 0.06;
     zzz.position.set(sprite.position.x + baseScale * 0.35, sprite.position.y + baseScale * 0.45 + bob, 0.1);
   }
@@ -577,7 +608,7 @@ export class TerrariumScene {
     for (const placement of placements) {
       let sprite = this.decorSprites.get(placement.id);
       if (!sprite) {
-        const shape = DECOR_SHAPE_BY_UNLOCK_ID.get(placement.unlockId);
+        const shape = decorShapeForUnlockId(placement.unlockId);
         if (!shape) continue;
 
         const texture = createDecorTexture(shape);
@@ -601,23 +632,39 @@ export class TerrariumScene {
     for (const placement of this.decorPlacements) {
       const sprite = this.decorSprites.get(placement.id);
       if (!sprite) continue;
-      const shape = DECOR_SHAPE_BY_UNLOCK_ID.get(placement.unlockId);
+      const shape = decorShapeForUnlockId(placement.unlockId);
       const material = sprite.material as THREE.SpriteMaterial;
 
       if (shape === "coconut-tree") {
         const age = this.sim.time - placement.plantedAt;
         const growth = Math.max(0, Math.min(1, age / COCONUT_GROWTH_SECONDS));
-        const scale = DECOR_SPRITE_SCALE * (0.55 + growth * 0.65); // 幼苗約 55% 大小，長到全高後是原本的 1.2 倍
+        const fullScale = decorScaleFor("coconut-tree");
+        const scale = fullScale * (0.55 + growth * 0.65); // 幼苗約 55% 大小，長到全高後是原本的 1.2 倍
         sprite.scale.set(scale, scale, 1);
         // 正在被拿起來拖曳移動的這一株，y 交給 dragDecorTo 即時跟著游標走，這裡不要每影格蓋回舊位置。
         if (this.draggingDecorId !== placement.id) {
-          sprite.position.y = placement.y - DECOR_SPRITE_SCALE * 0.5 * (1 - growth); // 幼苗矮，錨點跟著往下修正，看起來像從地面長出來而不是懸空縮小
+          sprite.position.y = placement.y - fullScale * 0.5 * (1 - growth); // 幼苗矮，錨點跟著往下修正，看起來像從地面長出來而不是懸空縮小
         }
       } else if (shape === "pond") {
         const flood = pondFloodFactor(placement.id, this.sim.time);
         const scale = decorScaleFor(shape) * (1 + flood * 0.18); // 「略為擴大」：氾濫時範圍最多多出 18%，不是誇張暴漲
         sprite.scale.set(scale, scale, 1);
         material.color.setRGB(1, 1 + flood * 0.15, 1 + flood * 0.3); // 氾濫時水面偏亮偏藍，暗示水量變多
+      } else if (shape === "campfire") {
+        // 營火持續有動畫：不像 applyActivityVisuals 那層姿態動畫要靠寵物逗留才會播，這裡每一影格都跑，
+        // 不管旁邊有沒有寵物，營火本身看起來永遠是活的。大小/角度都維持固定，只用「間歇性發光」表現——
+        // 大部分時間是平常的火光，每隔一段時間才短暫亮一下再暗回去，不是持續平滑的忽明忽暗。
+        // 用 placement id 錯開相位跟週期起點，多個營火不會同步發光。
+        const scale = decorScaleFor("campfire");
+        sprite.scale.set(scale, scale, 1);
+        const phase = hashString(placement.id);
+        const cycle = ((this.sim.time + phase) % CAMPFIRE_GLOW_CYCLE_SECONDS) / CAMPFIRE_GLOW_CYCLE_SECONDS;
+        const glow = cycle < CAMPFIRE_GLOW_WINDOW_FRACTION ? Math.sin((cycle / CAMPFIRE_GLOW_WINDOW_FRACTION) * Math.PI) : 0;
+        const warmth = 0.85 + glow * 0.2;
+        material.color.setRGB(1, warmth, warmth * 0.7);
+        if (Math.random() < CAMPFIRE_AMBIENT_MIST_CHANCE_PER_FRAME) {
+          this.spawnMistEffect(placement.x, placement.y + scale * 0.3);
+        }
       }
     }
   }
@@ -631,7 +678,7 @@ export class TerrariumScene {
     for (const placement of this.decorPlacements) {
       const sprite = this.decorSprites.get(placement.id);
       if (!sprite) continue;
-      const shape = DECOR_SHAPE_BY_UNLOCK_ID.get(placement.unlockId);
+      const shape = decorShapeForUnlockId(placement.unlockId);
       const hitRadius = decorScaleFor(shape) * 0.55;
       const dx = sprite.position.x - worldX;
       const dy = sprite.position.y - worldY;
@@ -946,6 +993,11 @@ export class TerrariumScene {
     this.updateDecorEvolution();
     this.updateTapEffects();
     this.renderer.render(this.scene, this.camera);
+  }
+
+  /** 把目前這一影格的畫面轉成 PNG data URL，供 main.ts 觸發下載用（見 renderer 的 preserveDrawingBuffer 設定）。 */
+  screenshotDataUrl(): string {
+    return this.renderer.domElement.toDataURL("image/png");
   }
 
   resize(): void {

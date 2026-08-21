@@ -1,5 +1,7 @@
 import type { Genome } from "./genome";
 import { generateCreatureName } from "./names";
+import { favoriteDecorShape } from "./personality";
+import type { DecorShape } from "./unlocks";
 
 export type CreatureState = "wander" | "cooldown-glow";
 
@@ -23,6 +25,7 @@ export interface Creature {
   lastPettedAt: number; // game-seconds，-Infinity 代表還沒被摸過
   parentIds: [string, string] | null; // 始祖是 null，供圖鑑顯示家庭關係（見 unlocks/codexPanel）
   partnerId: string | null; // 一夫一妻：配對後只跟這個 id 繁殖，見 simulation.ts 的 resolvePairing
+  favoriteDecor: DecorShape; // 「個性」：由 genome 元素傾向推出，純衍生值，見 personality.ts
 }
 
 let nextId = 0;
@@ -58,5 +61,6 @@ export function createCreature(
     lastPettedAt: -Infinity,
     parentIds,
     partnerId: null,
+    favoriteDecor: favoriteDecorShape(genome),
   };
 }

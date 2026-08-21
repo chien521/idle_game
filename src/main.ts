@@ -6,6 +6,7 @@ import {
   applyOfflineProgress,
   saveGame,
   exportSaveToFile,
+  importSaveFromJson,
   readUnlockedIds,
   readPlacements,
   clearSaveData,
@@ -16,6 +17,7 @@ import { mountCodexPanel } from "./ui/codexPanel";
 import { mountCreaturePanel } from "./ui/creaturePanel";
 import { makeDecorPlacementId, type DecorPlacement } from "./decor";
 import { seasonForTime, SEASON_LABELS } from "./season";
+import { easterEggStateForTime } from "./easterEgg";
 
 const FOUNDER_COUNT = 8;
 const AUTOSAVE_INTERVAL_SECONDS = 20;
@@ -71,13 +73,29 @@ function buildUI(root: HTMLElement) {
   top.appendChild(stats);
 
   // 放置模式提示：靠右顯示，不擋中央視野，也避免使用者移除的置中提示樣式。
+  const placementControls = document.createElement("div");
+  placementControls.style.cssText = "display: flex; align-items: center; gap: 6px;";
+  top.appendChild(placementControls);
+
   const placementHint = document.createElement("div");
   placementHint.style.cssText = `
     font-size: 12px; font-weight: 600; text-shadow: 0 1px 3px rgba(0,0,0,0.6);
     background: rgba(127,216,176,0.85); color: #0e1b16; padding: 6px 10px; border-radius: 8px;
     display: none;
   `;
-  top.appendChild(placementHint);
+  placementControls.appendChild(placementHint);
+
+  // 拿起裝飾物（移動模式）才會顯示：讓玩家可以直接刪掉拿在手上的這一個實例，
+  // 不用透過商店/圖鑑，跟「拿起來→點草地放下」共用同一套拿起狀態，只是多一個出口。
+  const deleteDecorButton = document.createElement("button");
+  deleteDecorButton.textContent = "🗑 刪除";
+  deleteDecorButton.style.cssText = `
+    pointer-events: auto; border: none; border-radius: 8px; padding: 6px 10px;
+    font-size: 12px; font-weight: 600; color: #eaf3ee;
+    background: rgba(214,80,80,0.9); box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: none;
+  `;
+  placementControls.appendChild(deleteDecorButton);
 
   overlay.appendChild(top);
 
@@ -96,19 +114,51 @@ function buildUI(root: HTMLElement) {
   const shopButton = makeButton("🎁 收藏");
   const codexButton = makeButton("📖 圖鑑");
   const exportButton = makeButton("匯出存檔");
+  const importButton = makeButton("匯入存檔");
+  const screenshotButton = makeButton("📸 截圖");
   const resetButton = makeButton("🔄 重新開始");
+
+  // 匯入用的檔案選擇器本身不需要顯示，按 importButton 時用程式觸發它跳出系統選檔視窗即可。
+  const importInput = document.createElement("input");
+  importInput.type = "file";
+  importInput.accept = "application/json,.json";
+  importInput.style.display = "none";
 
   bottom.appendChild(speedRow);
   bottom.appendChild(feedButton);
   bottom.appendChild(shopButton);
   bottom.appendChild(codexButton);
   bottom.appendChild(exportButton);
+  bottom.appendChild(importButton);
+  bottom.appendChild(screenshotButton);
   bottom.appendChild(resetButton);
   overlay.appendChild(bottom);
+  overlay.appendChild(importInput);
 
   root.appendChild(overlay);
 
-  return { stats, placementHint, speedButtons, feedButton, shopButton, codexButton, exportButton, resetButton };
+  return {
+    stats,
+    placementHint,
+    deleteDecorButton,
+    speedButtons,
+    feedButton,
+    shopButton,
+    codexButton,
+    exportButton,
+    importButton,
+    importInput,
+    screenshotButton,
+    resetButton,
+  };
+}
+
+/** 把 canvas 截圖的 data URL 觸發成瀏覽器下載，檔名格式比照 exportSaveToFile。 */
+function downloadScreenshot(dataUrl: string): void {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = `pixel-terrarium-${new Date().toISOString().slice(0, 10)}.png`;
+  a.click();
 }
 
 function makeButton(label: string, primary = false): HTMLButtonElement {
@@ -137,6 +187,11 @@ function main() {
   sim.setDecorPlacements(placements);
   const ui = buildUI(root);
 
+  // 重新開始／匯入存檔都會用 reload() 讓 bootstrapSimulation 用新的 localStorage 內容重新初始化；
+  // 這段期間要跳過自動存檔，不然 reload() 觸發的 beforeunload 會用「重新整理前的最後狀態」把
+  // 剛寫入的新內容蓋回去，玩家會看到畫面完全沒變，跟沒按到按鈕一樣。
+  let resetting = false;
+
   const shopPanel = mountShopPanel(root, { sim, unlockedIds, onStartPlacing: (unlockId) => startPlacingDecor(unlockId) });
   const codexPanel = mountCodexPanel(root, sim);
   const creaturePanel = mountCreaturePanel(root, sim);
@@ -152,8 +207,25 @@ function main() {
   setSpeed(1);
 
   ui.exportButton.addEventListener("click", () => exportSaveToFile(sim, unlockedIds, placements));
+  ui.screenshotButton.addEventListener("click", () => downloadScreenshot(scene.screenshotDataUrl()));
   ui.shopButton.addEventListener("click", () => shopPanel.toggle());
   ui.codexButton.addEventListener("click", () => codexPanel.toggle());
+
+  ui.importButton.addEventListener("click", () => ui.importInput.click());
+  ui.importInput.addEventListener("change", async () => {
+    const file = ui.importInput.files?.[0];
+    ui.importInput.value = ""; // 清空，不然選同一個檔案兩次不會再觸發 change
+    if (!file) return;
+    if (!window.confirm("確定要匯入這份存檔嗎？目前的生態瓶進度會被覆蓋，這個動作無法復原。")) return;
+
+    const text = await file.text();
+    if (!importSaveFromJson(text)) {
+      window.alert("匯入失敗：檔案內容不是有效的存檔。");
+      return;
+    }
+    resetting = true;
+    window.location.reload();
+  });
 
   // 餵食：按一下進入「放置模式」（按鈕亮起），之後每次點場景都會在該處丟一份食物，
   // 可以連續點好幾個地方，直到再按一次餵食按鈕才離開放置模式；
@@ -190,8 +262,24 @@ function main() {
     movingDecorId = placementId;
     placingDecorUnlockId = null;
     setPlacementHint(placementId ? "🧭 點草地移到新位置" : null);
+    ui.deleteDecorButton.style.display = placementId ? "inline-block" : "none";
     scene.setDraggingDecor(placementId); // 拿起來時變半透明，放下/取消時恢復
   };
+
+  // 刪除：拿起裝飾物後才看得到這個按鈕，直接把該實例從 placements 移除——
+  // scene.setDecor 本來就會把不在清單裡的 sprite 連同貼圖一起清掉（見 scene.ts），
+  // 不用額外處理場景這一側。裝飾解鎖後可以無限次重新放置，刪除不影響解鎖進度，風險很低，不用二次確認。
+  ui.deleteDecorButton.addEventListener("click", () => {
+    if (!movingDecorId) return;
+    const idx = placements.findIndex((p) => p.id === movingDecorId);
+    if (idx !== -1) {
+      placements.splice(idx, 1);
+      scene.setDecor(placements);
+      sim.setDecorPlacements(placements);
+      saveGame(sim, unlockedIds, placements);
+    }
+    setMovingDecor(null);
+  });
   const startPlacingDecor = (unlockId: string) => {
     setPlacingDecor(unlockId);
     feedMode = false;
@@ -228,7 +316,7 @@ function main() {
     }
 
     if (scene.pickEasterEggAt(x, y)) {
-      sim.markEasterEggFound();
+      sim.markVisitorFound(easterEggStateForTime(sim.time).kind);
       scene.spawnSparkleEffect(x, y);
       return;
     }
@@ -296,10 +384,6 @@ function main() {
   }
   requestAnimationFrame(frame);
 
-  // resetting 期間要跳過自動存檔：reload() 會觸發 beforeunload，若還是照舊存檔，
-  // 剛剛 clearSaveData() 清掉的存檔會被這裡用「重新整理前的最後狀態」原封不動蓋回去，
-  // 玩家會看到畫面完全沒變，跟沒按到重新開始一樣。
-  let resetting = false;
   const persist = () => {
     if (resetting) return;
     saveGame(sim, unlockedIds, placements);

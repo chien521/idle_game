@@ -3,6 +3,8 @@ import type { Creature } from "./creature";
 import { Simulation, DEFAULT_CONFIG, type DiscoveredCreature } from "./simulation";
 import { generateCreatureName } from "./names";
 import { makeDecorPlacementId, LEGACY_PLANTED_AT, type DecorPlacement } from "./decor";
+import { favoriteDecorShape } from "./personality";
+import { VISITOR_KINDS, type VisitorKind } from "./easterEgg";
 
 const STORAGE_KEY = "pixel-terrarium-save-v1";
 const MAX_OFFLINE_GAME_SECONDS = 8 * 60 * 60; // 離線最多結算 8 小時，避免無上限運算
@@ -33,7 +35,8 @@ export interface SaveData {
   seenSpectrum?: { sun: boolean; moisture: boolean; wind: boolean; shade: boolean };
   seenRainbow?: boolean;
   seenMeteorShower?: boolean;
-  seenEasterEgg?: boolean;
+  seenEasterEgg?: boolean; // 舊存檔（訪客只有一種造型時）的旗標，見 deserializeIntoSimulation 的遷移邏輯
+  seenVisitorKinds?: string[];
   discoveredCreatures?: DiscoveredCreature[];
   interactionBonusSeconds?: number;
   lastBirthAt?: number;
@@ -66,7 +69,7 @@ export function serialize(
     seenSpectrum: { ...sim.seenSpectrum },
     seenRainbow: sim.seenRainbow,
     seenMeteorShower: sim.seenMeteorShower,
-    seenEasterEgg: sim.seenEasterEgg,
+    seenVisitorKinds: [...sim.seenVisitorKinds],
     discoveredCreatures: sim.discoveredCreatures.map((d) => ({ ...d })),
     interactionBonusSeconds: sim.interactionBonusSeconds,
     lastBirthAt: sim.lastBirthAt,
@@ -88,6 +91,39 @@ export function clearSaveData(): void {
   } catch (err) {
     console.warn("清除存檔失敗", err);
   }
+}
+
+/** 粗略檢查 JSON 內容長得像一份存檔（版本號＋幾個必要陣列欄位），擋掉使用者選錯檔案的情況；
+ *  細部缺欄位（例如很舊版本沒有的功能）交給 deserializeIntoSimulation 既有的相容遷移邏輯處理，
+ *  這裡不用重複做，只要形狀對了就放行。 */
+function isValidSaveData(data: unknown): data is SaveData {
+  if (!data || typeof data !== "object") return false;
+  const d = data as Partial<SaveData>;
+  return d.version === 1 && typeof d.gameTime === "number" && Array.isArray(d.creatures) && Array.isArray(d.unlockedIds) && Array.isArray(d.placements);
+}
+
+/** 把匯出過的存檔 JSON 文字寫回 localStorage，供「匯入存檔」按鈕用。呼叫端拿到 true 之後
+ *  自行重新整理頁面，讓 bootstrapSimulation 用這份剛寫入的存檔重新初始化（跟 clearSaveData()
+ *  之後靠重新整理生效的手法一致，不用另外提供「即時套用」的路徑）。 */
+export function importSaveFromJson(text: string): boolean {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch (err) {
+    console.warn("匯入存檔失敗：JSON 格式錯誤", err);
+    return false;
+  }
+  if (!isValidSaveData(data)) {
+    console.warn("匯入存檔失敗：檔案內容不像有效的存檔");
+    return false;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, text);
+  } catch (err) {
+    console.warn("匯入存檔失敗", err);
+    return false;
+  }
+  return true;
 }
 
 export function readSaveData(): SaveData | null {
@@ -140,11 +176,12 @@ export function deserializeIntoSimulation(data: SaveData): Simulation {
   sim.time = data.gameTime;
   sim.interactionBonusSeconds = data.interactionBonusSeconds ?? 0;
   sim.lastBirthAt = data.lastBirthAt ?? -Infinity;
-  sim.creatures = data.creatures.map(
-    (c): Creature => ({
+  sim.creatures = data.creatures.map((c): Creature => {
+    const genome = migrateGenome(c.genome);
+    return {
       id: c.id,
       name: c.name ?? generateCreatureName(c.id),
-      genome: migrateGenome(c.genome),
+      genome,
       x: c.x,
       y: c.y,
       vx: 0,
@@ -159,8 +196,9 @@ export function deserializeIntoSimulation(data: SaveData): Simulation {
       lastPettedAt: -Infinity,
       parentIds: c.parentIds ?? null,
       partnerId: c.partnerId ?? null,
-    })
-  );
+      favoriteDecor: favoriteDecorShape(genome), // 純衍生值，不用存檔欄位，載入時直接重算（見 personality.ts）
+    };
+  });
 
   // 保底：伴侶關係必須是「雙方互指對方」才有效，否則當成單身處理——避免存檔損毀或
   // 手動改檔造成兩隻互不承認彼此是伴侶、卻誰也配不到新對象的卡死狀態。
@@ -176,7 +214,12 @@ export function deserializeIntoSimulation(data: SaveData): Simulation {
   sim.totalBirths = data.totalBirths ?? 0;
   sim.seenRainbow = data.seenRainbow ?? false;
   sim.seenMeteorShower = data.seenMeteorShower ?? false;
-  sim.seenEasterEgg = data.seenEasterEgg ?? false;
+  if (data.seenVisitorKinds) {
+    sim.seenVisitorKinds = new Set(data.seenVisitorKinds.filter((k): k is VisitorKind => VISITOR_KINDS.includes(k as VisitorKind)));
+  } else if (data.seenEasterEgg) {
+    // 舊存檔（多種訪客造型推出前）只有單一布林值，那時候訪客只有「星靈」一種造型，直接算它已被找到過。
+    sim.seenVisitorKinds = new Set(["star-spirit"]);
+  }
   if (data.seenRareCreature !== undefined && data.seenSpectrum) {
     sim.seenRareCreature = data.seenRareCreature;
     sim.seenSpectrum = { ...data.seenSpectrum };

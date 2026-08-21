@@ -9,6 +9,8 @@ import {
 import { createCreature, type Creature } from "./creature";
 import type { DecorPlacement } from "./decor";
 import { rainbowIntensityForTime, meteorShowerIntensityForTime } from "./season";
+import { decorShapeForUnlockId } from "./unlocks";
+import type { VisitorKind } from "./easterEgg";
 
 /**
  * 幫活動持續時間加一點隨機浮動（0.6x～1.4x）。
@@ -54,6 +56,12 @@ export interface SimulationConfig {
   decorVisitChance: number; // 剛好在裝飾物附近時，停下來逗留的機率
   decorVisitDurationSeconds: number;
   decorVisitRadius: number; // 世界單位（絕對值，不用跟著場地比例縮放——裝飾物本身大小是固定的）
+  // 「個性」偏好（見 personality.ts）：路過自己最愛的裝飾物時，感應範圍/逗留機率/逗留時間
+  // 都會被放大這幾個倍率，但仍然是「路過剛好停下來」，不會從遠處被拉過去——只是喜歡的裝飾
+  // 感應泡泡變大、更容易被命中，維持跟一般裝飾一樣的行為模式，只是機率上更偏好。
+  favoriteDecorRadiusMultiplier: number;
+  favoriteDecorChanceMultiplier: number;
+  favoriteDecorDurationMultiplier: number;
   foodNoticeRadius: number; // 生物擲骰時，食物在這個範圍內才有機會被注意到
   foodAttractChance: number;
   foodMaxSeekers: number; // 同一份食物最多同時吸引幾隻過去，避免十幾隻疊在同一點上
@@ -91,6 +99,9 @@ export const DEFAULT_CONFIG: SimulationConfig = {
   decorVisitChance: 0.35,
   decorVisitDurationSeconds: 8,
   decorVisitRadius: 3,
+  favoriteDecorRadiusMultiplier: 2,
+  favoriteDecorChanceMultiplier: 2,
+  favoriteDecorDurationMultiplier: 1.8,
   // 餵食：跟裝飾物不同，食物是玩家當下主動丟的、通常就在螢幕範圍內看著，
   // 值得讓生物專程從稍遠的地方走過去，才會有「牠注意到然後走過來吃」的效果。
   // 放置本身沒有冷卻（餵食模式下可以連續點），靠 maxFoodItems 避免場上堆積過多。
@@ -155,8 +166,9 @@ export class Simulation {
   /** 跟上面兩個一樣是「曾經觀察過」的累積旗標，只是觀察的對象是稀有天氣（見 observeRareWeather）。 */
   seenRainbow = false;
   seenMeteorShower = false;
-  /** 彩蛋訪客要玩家主動點到才算「找到」，不是自動觀察到就算——見 markEasterEggFound。 */
-  seenEasterEgg = false;
+  /** 稀有訪客要玩家主動點到才算「找到」，不是自動觀察到就算——見 markVisitorFound。
+   *  記錄的是「哪些種類」被找到過（見 easterEgg.ts 的 VisitorKind），供圖鑑子圖鑑顯示收集進度。 */
+  seenVisitorKinds: Set<VisitorKind> = new Set();
   /** 圖鑑：歷來出現過的每一隻個體都會留一筆紀錄，見 observeGenome。 */
   discoveredCreatures: DiscoveredCreature[] = [];
   /** 場上還沒被吃掉的食物，見 dropFood/stepCreatures。 */
@@ -187,10 +199,10 @@ export class Simulation {
     this.decorPlacements = [...placements];
   }
 
-  /** 玩家點到彩蛋訪客，標記牠被找到過了（見 unlocks.ts 的 codex-easter-egg）。訪客本身不屬於
-   *  基因/繁殖系統，這裡只是單純記一筆旗標，沒有其他數值效果。 */
-  markEasterEggFound(): void {
-    this.seenEasterEgg = true;
+  /** 玩家點到稀有訪客，標記這個種類被找到過了（見 unlocks.ts 的 codex-easter-egg、codexPanel 的
+   *  稀有訪客子圖鑑）。訪客本身不屬於基因/繁殖系統，這裡只是單純記一筆旗標，沒有其他數值效果。 */
+  markVisitorFound(kind: VisitorKind): void {
+    this.seenVisitorKinds.add(kind);
   }
 
   /** 摸摸：純粹的互動回饋（愛心特效/提示交給 UI 層），跟數值無關。回傳是否實際生效（冷卻中則忽略）。 */
@@ -359,7 +371,10 @@ export class Simulation {
       // 已經有夠多隻在往這份食物走了，這次當作沒看到，不然大家都往同一點擠、疊成一團。
       if (seekers >= cfg.foodMaxSeekers) nearbyFood = null;
     }
-    const nearbyDecor = this.nearestDecor(c, cfg.decorVisitRadius);
+    const nearbyDecorResult = this.nearestDecor(c, cfg.decorVisitRadius);
+    const nearbyDecor = nearbyDecorResult?.placement ?? null;
+    const decorIsFavorite = nearbyDecorResult?.isFavorite ?? false;
+    const decorChance = decorIsFavorite ? cfg.decorVisitChance * cfg.favoriteDecorChanceMultiplier : cfg.decorVisitChance;
     const r = Math.random();
 
     let threshold = nearbyFood ? cfg.foodAttractChance : 0;
@@ -370,13 +385,16 @@ export class Simulation {
       return;
     }
 
-    if (nearbyDecor && r < threshold + cfg.decorVisitChance) {
+    if (nearbyDecor && r < threshold + decorChance) {
       c.activity = "decor";
       c.activityTargetId = nearbyDecor.unlockId;
-      c.activityUntil = this.time + jitterDuration(cfg.decorVisitDurationSeconds);
+      const duration = decorIsFavorite
+        ? cfg.decorVisitDurationSeconds * cfg.favoriteDecorDurationMultiplier
+        : cfg.decorVisitDurationSeconds;
+      c.activityUntil = this.time + jitterDuration(duration);
       return;
     }
-    threshold += nearbyDecor ? cfg.decorVisitChance : 0;
+    threshold += nearbyDecor ? decorChance : 0;
 
     if (r < threshold + cfg.sleepChance) {
       c.activity = "sleep";
@@ -393,19 +411,32 @@ export class Simulation {
     c.activityUntil = this.time + jitterDuration(cfg.wanderRetargetSeconds);
   }
 
-  private nearestDecor(c: Creature, radius: number): DecorPlacement | null {
-    let nearest: DecorPlacement | null = null;
-    let nearestDistSq = radius * radius;
+  /** 找路過範圍內的裝飾物；喜歡的裝飾物（見 personality.ts 的 favoriteDecor）用放大過的感應半徑找、
+   *  且優先於一般裝飾物——就算場上有更近的非喜歡裝飾，只要喜歡的落在放大後的範圍內就優先選它。
+   *  找不到喜歡的才 fallback 回「範圍內最近」的一般邏輯，跟這個功能推出前的行為一致。 */
+  private nearestDecor(c: Creature, radius: number): { placement: DecorPlacement; isFavorite: boolean } | null {
+    const favoriteRadius = radius * this.config.favoriteDecorRadiusMultiplier;
+    let best: DecorPlacement | null = null;
+    let bestIsFavorite = false;
+    let bestDistSq = Infinity;
     for (const p of this.decorPlacements) {
+      const isFavorite = decorShapeForUnlockId(p.unlockId) === c.favoriteDecor;
+      const r = isFavorite ? favoriteRadius : radius;
       const dx = p.x - c.x;
       const dy = p.y - c.y;
       const distSq = dx * dx + dy * dy;
-      if (distSq < nearestDistSq) {
-        nearest = p;
-        nearestDistSq = distSq;
+      if (distSq > r * r) continue;
+
+      if (isFavorite && !bestIsFavorite) {
+        best = p;
+        bestIsFavorite = true;
+        bestDistSq = distSq;
+      } else if (isFavorite === bestIsFavorite && distSq < bestDistSq) {
+        best = p;
+        bestDistSq = distSq;
       }
     }
-    return nearest;
+    return best ? { placement: best, isFavorite: bestIsFavorite } : null;
   }
 
   private nearestFood(c: Creature, radius: number): FoodItem | null {

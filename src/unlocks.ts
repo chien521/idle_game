@@ -1,7 +1,23 @@
 import type { Simulation } from "./simulation";
+import { seasonForTime, type Season } from "./season";
+import { VISITOR_KINDS } from "./easterEgg";
 
 export type UnlockType = "decor" | "codex";
-export type DecorShape = "moss-stone" | "colored-sand" | "water-wheel" | "campfire" | "pond" | "coconut-tree";
+export type DecorShape =
+  | "moss-stone"
+  | "colored-sand"
+  | "water-wheel"
+  | "campfire"
+  | "pond"
+  | "coconut-tree"
+  | "stone-lantern"
+  | "garden-gazebo"
+  | "wishing-fountain"
+  | "ancient-tree"
+  | "cherry-blossom"
+  | "beach-umbrella"
+  | "pumpkin-lantern"
+  | "snowman";
 
 export interface UnlockDef {
   id: string;
@@ -18,6 +34,19 @@ export interface UnlockDef {
 
 function daysProgressLabel(target: number): (sim: Simulation) => string {
   return (sim) => `${Math.min(companionDays(sim), target).toFixed(1)} / ${target} 天`;
+}
+
+const SEASON_UNLOCK_LABELS: Record<Season, string> = { spring: "春天", summer: "夏天", autumn: "秋天", winter: "冬天" };
+
+/** 季節限定裝飾的進度文字：陪伴天數之外，另外標出「現在正是/需等到」該季節——
+ *  真正卡進度的通常是季節有沒有輪到，不是陪伴天數（門檻本來就設得很低）。 */
+function seasonalProgressLabel(target: number, season: Season): (sim: Simulation) => string {
+  return (sim) => {
+    const dayPart = `${Math.min(companionDays(sim), target).toFixed(1)} / ${target} 天`;
+    const seasonLabel = SEASON_UNLOCK_LABELS[season];
+    const seasonPart = seasonForTime(sim.time) === season ? `現在正是${seasonLabel}` : `需等到${seasonLabel}`;
+    return `${dayPart}　·　${seasonPart}`;
+  };
 }
 
 /** 陪伴天數＝真實流逝的遊戲時間 + 摸摸/餵食累積的額外「陪伴天數」秒數（見 simulation.ts 的 interactionBonusSeconds）。 */
@@ -132,8 +161,8 @@ export const UNLOCKS: UnlockDef[] = [
     label: "神秘小訪客",
     type: "codex",
     description: "點到偶爾飄進生態瓶裡的神秘訪客",
-    isMet: (sim) => sim.seenEasterEgg,
-    progressLabel: (sim) => (sim.seenEasterEgg ? "已找到" : "尚未發現"),
+    isMet: (sim) => sim.seenVisitorKinds.size > 0,
+    progressLabel: (sim) => `${sim.seenVisitorKinds.size} / ${VISITOR_KINDS.length} 種已發現`,
   },
   {
     id: "mechanic-greenhouse-expansion",
@@ -143,7 +172,87 @@ export const UNLOCKS: UnlockDef[] = [
     isMet: (sim) => companionDays(sim) >= 14,
     progressLabel: daysProgressLabel(14),
   },
+  {
+    id: "decor-stone-lantern",
+    label: "石燈籠",
+    type: "decor",
+    description: "陪伴 30 天",
+    isMet: (sim) => companionDays(sim) >= 30,
+    progressLabel: daysProgressLabel(30),
+    decorShape: "stone-lantern",
+  },
+  {
+    id: "decor-garden-gazebo",
+    label: "小涼亭",
+    type: "decor",
+    description: "陪伴 60 天",
+    isMet: (sim) => companionDays(sim) >= 60,
+    progressLabel: daysProgressLabel(60),
+    decorShape: "garden-gazebo",
+  },
+  {
+    id: "decor-wishing-fountain",
+    label: "許願噴泉",
+    type: "decor",
+    description: "陪伴 120 天",
+    isMet: (sim) => companionDays(sim) >= 120,
+    progressLabel: daysProgressLabel(120),
+    decorShape: "wishing-fountain",
+  },
+  {
+    id: "decor-ancient-tree",
+    label: "巨型古樹",
+    type: "decor",
+    description: "陪伴 240 天",
+    isMet: (sim) => companionDays(sim) >= 240,
+    progressLabel: daysProgressLabel(240),
+    decorShape: "ancient-tree",
+  },
+  {
+    id: "decor-cherry-blossom",
+    label: "櫻花盆栽",
+    type: "decor",
+    description: "陪伴 2 天，且逢春天",
+    isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "spring",
+    progressLabel: seasonalProgressLabel(2, "spring"),
+    decorShape: "cherry-blossom",
+  },
+  {
+    id: "decor-beach-umbrella",
+    label: "遮陽傘",
+    type: "decor",
+    description: "陪伴 2 天，且逢夏天",
+    isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "summer",
+    progressLabel: seasonalProgressLabel(2, "summer"),
+    decorShape: "beach-umbrella",
+  },
+  {
+    id: "decor-pumpkin-lantern",
+    label: "南瓜燈",
+    type: "decor",
+    description: "陪伴 2 天，且逢秋天",
+    isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "autumn",
+    progressLabel: seasonalProgressLabel(2, "autumn"),
+    decorShape: "pumpkin-lantern",
+  },
+  {
+    id: "decor-snowman",
+    label: "雪人",
+    type: "decor",
+    description: "陪伴 2 天，且逢冬天",
+    isMet: (sim) => companionDays(sim) >= 2 && seasonForTime(sim.time) === "winter",
+    progressLabel: seasonalProgressLabel(2, "winter"),
+    decorShape: "snowman",
+  },
 ];
+
+const DECOR_SHAPE_BY_UNLOCK_ID = new Map(UNLOCKS.filter((u) => u.decorShape).map((u) => [u.id, u.decorShape!]));
+
+/** 依裝飾放置紀錄的 unlockId 查回它的 DecorShape（供 scene.ts 畫圖、personality 判斷偏好用），
+ *  單一來源避免各處各自重複建立同一份 map。 */
+export function decorShapeForUnlockId(unlockId: string): DecorShape | undefined {
+  return DECOR_SHAPE_BY_UNLOCK_ID.get(unlockId);
+}
 
 /** 依目前 simulation 狀態，回傳新達成、尚未記錄過的解鎖 id。呼叫端負責把回傳的 id 併入已存的 unlockedIds。 */
 export function computeNewlyUnlocked(sim: Simulation, alreadyUnlocked: ReadonlySet<string>): UnlockDef[] {

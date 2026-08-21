@@ -1,6 +1,8 @@
 import type { Simulation, DiscoveredCreature } from "../simulation";
 import { renderCreatureCanvas } from "../render/creatureSprite";
+import { renderVisitorCanvas } from "../render/rareVisitorSprite";
 import { UNLOCKS } from "../unlocks";
+import { VISITOR_KINDS, VISITOR_LABELS, type VisitorKind } from "../easterEgg";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -179,6 +181,55 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
     }
   }
 
+  // 稀有訪客子圖鑑：跟上面的收集成就（unlockSection）分開陳列——這裡是「有圖有名字」的收藏格子，
+  // 不是純文字進度。已找到的種類顯示牠的造型跟名字，還沒找到的維持「？」神秘格，不提前爆雷長相/名字，
+  // 保留「點到才算找到」的驚喜感（呼應 sim.markVisitorFound 需要玩家主動互動才記錄的設計）。
+  const visitorSection = document.createElement("div");
+  visitorSection.style.cssText = "margin-bottom: 16px;";
+  const visitorTitle = document.createElement("div");
+  visitorTitle.textContent = "🌟 稀有訪客";
+  visitorTitle.style.cssText = "font-size: 13px; font-weight: 700; margin-bottom: 8px; opacity: 0.85;";
+  visitorSection.appendChild(visitorTitle);
+  const visitorGrid = document.createElement("div");
+  visitorGrid.style.cssText = "display: flex; flex-wrap: wrap; gap: 10px;";
+  visitorSection.appendChild(visitorGrid);
+  card.appendChild(visitorSection);
+
+  function visitorTile(kind: VisitorKind, discovered: boolean): HTMLElement {
+    const tile = document.createElement("div");
+    tile.style.cssText = "width: 60px; display: flex; flex-direction: column; align-items: center; gap: 4px;";
+
+    const box = document.createElement("div");
+    box.style.cssText = `
+      width: 52px; height: 52px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      background: ${discovered ? "rgba(201,162,240,0.18)" : "rgba(255,255,255,0.04)"};
+      border: 2px solid ${discovered ? "rgba(201,162,240,0.5)" : "rgba(255,255,255,0.08)"};
+      box-sizing: border-box;
+    `;
+    if (discovered) {
+      const canvas = renderVisitorCanvas(kind);
+      canvas.style.cssText = "width: 34px; height: 34px; image-rendering: pixelated;";
+      box.appendChild(canvas);
+    } else {
+      box.textContent = "❓";
+      box.style.fontSize = "20px";
+      box.style.opacity = "0.5";
+    }
+    tile.appendChild(box);
+
+    const label = document.createElement("span");
+    label.textContent = discovered ? VISITOR_LABELS[kind] : "？？？";
+    label.style.cssText = "font-size: 10px; opacity: 0.9; text-align: center; line-height: 1.2;";
+    tile.appendChild(label);
+
+    return tile;
+  }
+
+  function updateVisitorGallery(): void {
+    visitorGrid.replaceChildren(...VISITOR_KINDS.map((kind) => visitorTile(kind, sim.seenVisitorKinds.has(kind))));
+  }
+
   // canvasWrap 包住格狀本體，同時是虛線 SVG 的定位基準；SVG 蓋在同一個 relative 容器裡，
   // 會跟著 card 的原生捲動一起動，不用另外監聽 scroll 事件重算座標。
   const canvasWrap = document.createElement("div");
@@ -315,6 +366,7 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
     populationStat.textContent = `🌿 ${sim.creatures.length}`;
     discoveredStat.textContent = `⭐ ${sim.discoveredCreatures.length}`;
     updateUnlocks();
+    updateVisitorGallery();
 
     // 個體數沒變就不重畫格子（避免每 frame 重建 DOM），但高亮/連線每次都重算，
     // 因為選取狀態或畫面位置（例如捲動）隨時可能變。
