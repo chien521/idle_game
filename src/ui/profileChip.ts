@@ -53,7 +53,9 @@ export function mountProfileChip(root: HTMLElement, { onLogin, onLogout }: Profi
       img.style.cssText = "width: 100%; height: 100%; object-fit: cover;";
       avatar.appendChild(img);
     } else {
-      avatar.textContent = "🔓";
+      // 訪客模式的鎖頭圖示只在名稱那邊顯示一次（ui.guest 文字本身就帶 🔓），這裡放個中性的人形圖示，
+      // 避免頭像圈跟名稱同時各自出現一個鎖頭 emoji。
+      avatar.textContent = "👤";
     }
   }
 

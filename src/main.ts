@@ -69,9 +69,12 @@ function buildUI(root: HTMLElement) {
     color: #eaf3ee;
   `;
 
+  // 三欄 grid 而不是 flex space-between：兩側欄位都是 1fr（等寬彈性空間），中間欄位維持內容寬度，
+  // 這樣中間的放置提示/刪除按鈕才會真正置中，不會因為左邊統計列文字長度不同而偏移，
+  // 也不會被絕對定位在右上角的登入卡片（profileChip，z-index 960）擋到。
   const top = document.createElement("div");
   top.style.cssText = `
-    display: flex; justify-content: space-between; align-items: flex-start;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: flex-start; gap: 8px;
     padding: max(10px, env(safe-area-inset-top)) 14px 0 14px;
   `;
 
@@ -80,7 +83,7 @@ function buildUI(root: HTMLElement) {
   // 直向排列（按鈕在統計列下方）而不是並排：統計列文字長度依語言/數字不同會變化，並排的話
   // 在窄螢幕上文字一長就會把按鈕推到跟右上角的登入卡片重疊，直向排就不會有這個問題。
   const topLeft = document.createElement("div");
-  topLeft.style.cssText = "display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: auto;";
+  topLeft.style.cssText = "display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: auto; grid-column: 1;";
   top.appendChild(topLeft);
 
   const stats = document.createElement("div");
@@ -96,9 +99,9 @@ function buildUI(root: HTMLElement) {
   `;
   topLeft.appendChild(helpButton);
 
-  // 放置模式提示：靠右顯示，不擋中央視野，也避免使用者移除的置中提示樣式。
+  // 放置模式提示：置中顯示在畫面正上方，不會被右上角的登入卡片擋住。
   const placementControls = document.createElement("div");
-  placementControls.style.cssText = "display: flex; align-items: center; gap: 6px;";
+  placementControls.style.cssText = "display: flex; align-items: center; gap: 6px; grid-column: 2; pointer-events: auto;";
   top.appendChild(placementControls);
 
   const placementHint = document.createElement("div");
