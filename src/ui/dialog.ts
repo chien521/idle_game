@@ -88,6 +88,25 @@ export function showConfirm(message: string): Promise<boolean> {
   });
 }
 
+/** 純資訊性的說明卡片：標題 + 一段一段的條列文字，只有一個關閉按鈕，不用等玩家做選擇——
+ *  用在遊戲說明這種「講完就好」的內容，跟 showConfirm/showChoice 那種需要玩家決定的用途分開。 */
+export function showInfo(title: string, lines: string[]): void {
+  const r = openDialog((r) => {
+    r.message.textContent = title;
+    r.message.style.fontWeight = "700";
+    r.message.style.fontSize = "15px";
+    for (const line of lines) {
+      const p = document.createElement("div");
+      p.textContent = line;
+      p.style.cssText = "font-size: 13px; line-height: 1.6; margin-bottom: 8px;";
+      r.body.appendChild(p);
+    }
+  });
+  const closeBtn = makeButton(t("dialog.close"), true);
+  closeBtn.addEventListener("click", () => (r.backdrop.style.display = "none"));
+  r.actions.append(closeBtn);
+}
+
 export function showAlert(message: string): Promise<void> {
   return new Promise((resolve) => {
     const r = openDialog((r) => {

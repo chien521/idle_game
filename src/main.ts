@@ -22,7 +22,7 @@ import { t, locale, LOCALE_NAMES, LOCALE_LIST, setManualLocale } from "./i18n";
 import { initViverseAuth, loginToViverse, logoutFromViverse, type ViverseProfile } from "./viverse/auth";
 import { saveToCloud, loadFromCloud, saveBeacon } from "./viverse/storage";
 import { mountProfileChip } from "./ui/profileChip";
-import { showConfirm, showAlert, showDownloadableImage, showDownloadableText, showChoice } from "./ui/dialog";
+import { showConfirm, showAlert, showDownloadableImage, showDownloadableText, showChoice, showInfo } from "./ui/dialog";
 import type { SaveData } from "./save";
 
 const FOUNDER_COUNT = 8;
@@ -75,9 +75,26 @@ function buildUI(root: HTMLElement) {
     padding: max(10px, env(safe-area-inset-top)) 14px 0 14px;
   `;
 
+  // 統計列跟說明按鈕包在同一個左側群組裡，這樣 top 這層還是只有「左群組／右群組」兩個子元素，
+  // space-between 才會照原本的預期把兩群組推到左右兩端，不會因為多加一個按鈕就變成三等分。
+  // 直向排列（按鈕在統計列下方）而不是並排：統計列文字長度依語言/數字不同會變化，並排的話
+  // 在窄螢幕上文字一長就會把按鈕推到跟右上角的登入卡片重疊，直向排就不會有這個問題。
+  const topLeft = document.createElement("div");
+  topLeft.style.cssText = "display: flex; flex-direction: column; align-items: flex-start; gap: 6px; pointer-events: auto;";
+  top.appendChild(topLeft);
+
   const stats = document.createElement("div");
   stats.style.cssText = "font-size: 13px; line-height: 1.6; text-shadow: 0 1px 3px rgba(0,0,0,0.6);";
-  top.appendChild(stats);
+  topLeft.appendChild(stats);
+
+  const helpButton = document.createElement("button");
+  helpButton.textContent = "❓";
+  helpButton.style.cssText = `
+    pointer-events: auto; border: 1px solid rgba(234,243,238,0.25); border-radius: 50%;
+    width: 26px; height: 26px; flex: none; font-size: 13px; font-weight: 700; color: #eaf3ee;
+    background: rgba(20,37,32,0.75);
+  `;
+  topLeft.appendChild(helpButton);
 
   // 放置模式提示：靠右顯示，不擋中央視野，也避免使用者移除的置中提示樣式。
   const placementControls = document.createElement("div");
@@ -148,6 +165,7 @@ function buildUI(root: HTMLElement) {
 
   return {
     stats,
+    helpButton,
     placementHint,
     deleteDecorButton,
     speedButtons,
@@ -235,6 +253,18 @@ function main() {
   ui.screenshotButton.addEventListener("click", () => downloadScreenshot(scene.screenshotDataUrl()));
   ui.shopButton.addEventListener("click", () => shopPanel.toggle());
   ui.codexButton.addEventListener("click", () => codexPanel.toggle());
+
+  ui.helpButton.addEventListener("click", () => {
+    showInfo(t("help.title"), [
+      t("help.intro"),
+      t("help.pet"),
+      t("help.feed"),
+      t("help.shop"),
+      t("help.codex"),
+      t("help.speed"),
+      t("help.save"),
+    ]);
+  });
 
   ui.languageButton.addEventListener("click", async () => {
     const choice = await showChoice(
