@@ -1,28 +1,62 @@
 export type Locale = "zh" | "zh-cn" | "en" | "ja" | "ko" | "es";
 
+/** 每種語言各自用自己文字寫的名稱（不跟著目前介面語言翻譯），這樣不管玩家目前看到的是哪種語言，
+ *  選單裡都能一眼認出自己的母語。 */
+export const LOCALE_NAMES: Record<Locale, string> = {
+  zh: "繁體中文",
+  "zh-cn": "简体中文",
+  en: "English",
+  ja: "日本語",
+  ko: "한국어",
+  es: "Español",
+};
+export const LOCALE_LIST: Locale[] = ["zh", "zh-cn", "en", "ja", "ko", "es"];
+
+const MANUAL_LOCALE_KEY = "pixel-terrarium-lang";
+
 function getCookie(name: string): string {
   const m = document.cookie.match(new RegExp("(?:^|;\\s*)" + name + "=([^;]*)"));
   return m ? decodeURIComponent(m[1]) : "";
 }
 
-/** 偵測順序：VIVERSE 的 `_htc_lang_code` cookie → `?lang=` 網址參數（本地測試用）→ 預設英文。
- *  故意不看 navigator.language——遊戲預設語言就是英文，只有 VIVERSE 平台明確告知語言（cookie）
- *  或有人手動用 ?lang= 指定時才會換成其他語言，不會因為玩家瀏覽器/系統語言不同就自動跳成別的語言。
- *  只在頁面載入時算一次，VIVERSE 語言設定要重新整理頁面才會生效（跟 viverse-i18n skill 的行為一致）。 */
-function detectLocale(): Locale {
-  const cookieLang = getCookie("_htc_lang_code") || getCookie("lang") || getCookie("language") || getCookie("locale");
-  const urlLang = new URLSearchParams(window.location.search).get("lang") || "";
-  const raw = (cookieLang || urlLang || "en").toLowerCase();
-
-  if (raw === "zh-cn" || raw === "zh-sg" || raw === "zh-hans") return "zh-cn";
-  if (raw.startsWith("zh")) return "zh";
-  if (raw.startsWith("ja")) return "ja";
-  if (raw.startsWith("ko")) return "ko";
-  if (raw.startsWith("es")) return "es";
+function normalizeLocale(raw: string): Locale {
+  const lower = raw.toLowerCase();
+  if (lower === "zh-cn" || lower === "zh-sg" || lower === "zh-hans") return "zh-cn";
+  if (lower.startsWith("zh")) return "zh";
+  if (lower.startsWith("ja")) return "ja";
+  if (lower.startsWith("ko")) return "ko";
+  if (lower.startsWith("es")) return "es";
   return "en";
 }
 
+/** 偵測順序：玩家在遊戲內手動選過的語言（localStorage）→ VIVERSE 的 `_htc_lang_code` cookie →
+ *  `?lang=` 網址參數（本地測試用）→ 預設英文。故意不看 navigator.language——遊戲預設語言就是
+ *  英文，只有玩家自己選過、VIVERSE 平台明確告知語言，或手動用 ?lang= 指定時才會換成其他語言。
+ *  只在頁面載入時算一次，換語言（不管是手動選還是 VIVERSE 那邊的設定變了）都要重新整理頁面才會生效
+ *  （跟 viverse-i18n skill 的行為一致）。 */
+function detectLocale(): Locale {
+  let manualLang = "";
+  try {
+    manualLang = localStorage.getItem(MANUAL_LOCALE_KEY) ?? "";
+  } catch {
+    // localStorage 被擋掉（例如某些隱私模式）也不影響語言偵測，只是不能記住手動選擇
+  }
+  const cookieLang = getCookie("_htc_lang_code") || getCookie("lang") || getCookie("language") || getCookie("locale");
+  const urlLang = new URLSearchParams(window.location.search).get("lang") || "";
+  return normalizeLocale(manualLang || cookieLang || urlLang || "en");
+}
+
 export const locale: Locale = detectLocale();
+
+/** 玩家在遊戲內手動選了語言：記起來、下次（含這次呼叫完後的重新整理）都用這個語言，
+ *  直到玩家自己再選一次別的。呼叫端自己負責重新整理頁面讓新語言生效。 */
+export function setManualLocale(next: Locale): void {
+  try {
+    localStorage.setItem(MANUAL_LOCALE_KEY, next);
+  } catch {
+    // 存不進去就算了，這次的選擇只會在這個 session 生效（因為要 reload 才套用，其實等於沒生效）
+  }
+}
 
 type Vars = Record<string, string | number>;
 
@@ -37,6 +71,8 @@ export function t(key: string, vars: Vars = {}): string {
 
 const LOCALES: Record<Locale, Record<string, string>> = {
   zh: {
+    "ui.btn.language": "🌐 語言",
+    "ui.language.title": "選擇語言",
     "ui.btn.feed": "🍎 餵食",
     "ui.btn.shop": "🎁 收藏",
     "ui.btn.codex": "📖 圖鑑",
@@ -139,6 +175,8 @@ const LOCALES: Record<Locale, Record<string, string>> = {
   },
 
   "zh-cn": {
+    "ui.btn.language": "🌐 语言",
+    "ui.language.title": "选择语言",
     "ui.btn.feed": "🍎 喂食",
     "ui.btn.shop": "🎁 收藏",
     "ui.btn.codex": "📖 图鉴",
@@ -241,6 +279,8 @@ const LOCALES: Record<Locale, Record<string, string>> = {
   },
 
   en: {
+    "ui.btn.language": "🌐 Language",
+    "ui.language.title": "Select Language",
     "ui.btn.feed": "🍎 Feed",
     "ui.btn.shop": "🎁 Collection",
     "ui.btn.codex": "📖 Codex",
@@ -343,6 +383,8 @@ const LOCALES: Record<Locale, Record<string, string>> = {
   },
 
   ja: {
+    "ui.btn.language": "🌐 言語",
+    "ui.language.title": "言語を選択",
     "ui.btn.feed": "🍎 えさやり",
     "ui.btn.shop": "🎁 コレクション",
     "ui.btn.codex": "📖 図鑑",
@@ -445,6 +487,8 @@ const LOCALES: Record<Locale, Record<string, string>> = {
   },
 
   ko: {
+    "ui.btn.language": "🌐 언어",
+    "ui.language.title": "언어 선택",
     "ui.btn.feed": "🍎 먹이 주기",
     "ui.btn.shop": "🎁 컬렉션",
     "ui.btn.codex": "📖 도감",
@@ -547,6 +591,8 @@ const LOCALES: Record<Locale, Record<string, string>> = {
   },
 
   es: {
+    "ui.btn.language": "🌐 Idioma",
+    "ui.language.title": "Seleccionar idioma",
     "ui.btn.feed": "🍎 Alimentar",
     "ui.btn.shop": "🎁 Colección",
     "ui.btn.codex": "📖 Códice",

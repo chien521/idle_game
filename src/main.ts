@@ -18,11 +18,11 @@ import { mountCreaturePanel } from "./ui/creaturePanel";
 import { makeDecorPlacementId, type DecorPlacement } from "./decor";
 import { seasonForTime, SEASON_LABELS } from "./season";
 import { easterEggStateForTime } from "./easterEgg";
-import { t, locale } from "./i18n";
+import { t, locale, LOCALE_NAMES, LOCALE_LIST, setManualLocale } from "./i18n";
 import { initViverseAuth, loginToViverse, logoutFromViverse, type ViverseProfile } from "./viverse/auth";
 import { saveToCloud, loadFromCloud, saveBeacon } from "./viverse/storage";
 import { mountProfileChip } from "./ui/profileChip";
-import { showConfirm, showAlert, showDownloadableImage, showDownloadableText } from "./ui/dialog";
+import { showConfirm, showAlert, showDownloadableImage, showDownloadableText, showChoice } from "./ui/dialog";
 import type { SaveData } from "./save";
 
 const FOUNDER_COUNT = 8;
@@ -123,6 +123,7 @@ function buildUI(root: HTMLElement) {
   const exportButton = makeButton(t("ui.btn.export"));
   const importButton = makeButton(t("ui.btn.import"));
   const screenshotButton = makeButton(t("ui.btn.screenshot"));
+  const languageButton = makeButton(t("ui.btn.language"));
   const resetButton = makeButton(t("ui.btn.reset"));
 
   // 匯入用的檔案選擇器本身不需要顯示，按 importButton 時用程式觸發它跳出系統選檔視窗即可。
@@ -138,6 +139,7 @@ function buildUI(root: HTMLElement) {
   bottom.appendChild(exportButton);
   bottom.appendChild(importButton);
   bottom.appendChild(screenshotButton);
+  bottom.appendChild(languageButton);
   bottom.appendChild(resetButton);
   overlay.appendChild(bottom);
   overlay.appendChild(importInput);
@@ -156,6 +158,7 @@ function buildUI(root: HTMLElement) {
     importButton,
     importInput,
     screenshotButton,
+    languageButton,
     resetButton,
   };
 }
@@ -232,6 +235,16 @@ function main() {
   ui.screenshotButton.addEventListener("click", () => downloadScreenshot(scene.screenshotDataUrl()));
   ui.shopButton.addEventListener("click", () => shopPanel.toggle());
   ui.codexButton.addEventListener("click", () => codexPanel.toggle());
+
+  ui.languageButton.addEventListener("click", async () => {
+    const choice = await showChoice(
+      t("ui.language.title"),
+      LOCALE_LIST.map((l) => ({ value: l, label: LOCALE_NAMES[l] }))
+    );
+    if (!choice || choice === locale) return;
+    setManualLocale(choice);
+    window.location.reload();
+  });
 
   ui.importButton.addEventListener("click", () => ui.importInput.click());
   ui.importInput.addEventListener("change", async () => {

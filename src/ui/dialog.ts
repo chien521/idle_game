@@ -102,6 +102,40 @@ export function showAlert(message: string): Promise<void> {
   });
 }
 
+/** 通用的「從一堆選項選一個」卡片，例如語言選單。點選項直接關窗回傳選到的 value；
+ *  按取消或點背景關掉則回傳 null。選項用按鈕直向排列，不是原生 <select>——原生下拉選單
+ *  在部分 iframe/webview 環境裡樣式跟互動不受控，跟這裡其餘對話框一樣自己刻比較穩。 */
+export function showChoice<T extends string>(title: string, options: { value: T; label: string }[]): Promise<T | null> {
+  return new Promise((resolve) => {
+    const r = openDialog((r) => {
+      r.message.textContent = title;
+      const list = document.createElement("div");
+      list.style.cssText = "display: flex; flex-direction: column; gap: 6px;";
+      for (const opt of options) {
+        const btn = document.createElement("button");
+        btn.textContent = opt.label;
+        btn.style.cssText = `
+          pointer-events: auto; border: none; border-radius: 8px; padding: 10px 12px;
+          font-size: 13px; font-weight: 600; color: #eaf3ee; text-align: left;
+          background: rgba(234,243,238,0.08);
+        `;
+        btn.addEventListener("click", () => {
+          r.backdrop.style.display = "none";
+          resolve(opt.value);
+        });
+        list.appendChild(btn);
+      }
+      r.body.appendChild(list);
+    });
+    const cancelBtn = makeButton(t("dialog.cancel"), false);
+    cancelBtn.addEventListener("click", () => {
+      r.backdrop.style.display = "none";
+      resolve(null);
+    });
+    r.actions.append(cancelBtn);
+  });
+}
+
 function attemptNativeDownload(url: string, filename: string): void {
   try {
     const a = document.createElement("a");
