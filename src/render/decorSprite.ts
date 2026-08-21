@@ -2,6 +2,12 @@ import * as THREE from "three";
 import type { DecorShape } from "../unlocks";
 
 const GRID = 16;
+// 陽傘、椰子樹使用者反應太粗糙/bulky——這兩種改用 2 倍解析度畫布，線條、條紋、葉片都能畫得更細，
+// 縮放到場景裡的最終大小不變（decorScaleFor 的倍率沒變），純粹是畫布本身的取樣密度變高。
+const GRID_OVERRIDE: Partial<Record<DecorShape, number>> = {
+  "beach-umbrella": 32,
+  "coconut-tree": 32,
+};
 
 /** 逐像素邊界測試畫實心橢圓，避免 ctx.ellipse().fill() 那種平滑抗鋸齒邊緣——跟生物剪影同一套像素風畫法。 */
 function fillPixelEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number, rx: number, ry: number, color: string): void {
@@ -15,6 +21,34 @@ function fillPixelEllipse(ctx: CanvasRenderingContext2D, cx: number, cy: number,
       const nx = (x + 0.5 - cx) / rx;
       const ny = (y + 0.5 - cy) / ry;
       if (nx * nx + ny * ny <= 1) ctx.fillRect(x, y, 1, 1);
+    }
+  }
+}
+
+/**
+ * 在連續座標中心 cx 上，逐行畫出左右對稱的實心色塊（傘面剪影、樹幹漸縮這種形狀都適用）。
+ * halfWidthAt(y) 回傳該列的半寬，用「取樣點 x+0.5 對 cx 的距離」判斷要不要填色，
+ * 保證不管半寬是奇數還偶數、有沒有卡在 .5 邊界，畫出來的範圍一定以 cx 為軸完全對稱。
+ * 之前踩過的坑：改成左右各自 Math.round(cx±halfWidth) 分開取整，JS 的 Math.round 對 .5
+ * 一律進位，兩邊會進位到同一個方向，變成一邊多一格、一邊少一格，剪影就歪了。
+ */
+function fillSymmetricRows(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  minY: number,
+  maxY: number,
+  halfWidthAt: (y: number) => number,
+  colorAt: (x: number, y: number) => string
+): void {
+  for (let y = minY; y <= maxY; y++) {
+    const halfWidth = halfWidthAt(y);
+    if (halfWidth <= 0) continue;
+    const minX = Math.floor(cx - halfWidth);
+    const maxX = Math.ceil(cx + halfWidth);
+    for (let x = minX; x <= maxX; x++) {
+      if (Math.abs(x + 0.5 - cx) > halfWidth) continue;
+      ctx.fillStyle = colorAt(x, y);
+      ctx.fillRect(x, y, 1, 1);
     }
   }
 }
@@ -137,38 +171,72 @@ function drawFrond(
 }
 
 function drawCoconutTree(ctx: CanvasRenderingContext2D): void {
-  // 樹幹：直立不彎，全程固定寬度、左右邊緣都是直線，不做粗細漸變——
-  // 之前底粗頂細的漸縮是只縮右邊（左邊固定），中心線會跟著偏移，看起來像上端歪一邊。
-  ctx.fillStyle = "#8a6440";
-  ctx.fillRect(7, 6, 2, 9);
+  // 使用者反應原本太粗糙／bulky，這個造型用 2 倍解析度畫布（見 GRID_OVERRIDE）重畫，
+  // 之後又陸續調過細度、葉片數量。這次再加幾個椰子樹題材常見的通用畫法慣例：
+  // 樹幹改成帶弧度（不是筆直的）、疊更多道分節紋理、葉子分區塊用不同深淺的綠、
+  // 底部加一叢草——這些都是這類題材普遍會用的元素，不是複製特定某張參考圖。
+  const baseX = 16; // 樹幹底部固定在這裡，弧度只往上彎
+  const trunkTopY = 12;
+  const trunkBottomY = 30;
+  const trunkBaseHalfWidth = 2.1;
+  const trunkTopHalfWidth = 1.1;
+  const trunkColor = "#b98a5e";
+  const trunkShadeColor = "#96714a";
+  const curveMax = 4; // 樹幹頂端往右偏移的最大量，底部維持不動
 
-  ctx.fillStyle = "#6b4a2f";
-  ctx.fillRect(7, 8, 2, 1);
-  ctx.fillRect(7, 11, 2, 1);
-  ctx.fillRect(7, 13, 2, 1);
+  // 樹幹彎度：用 t^1.5 讓靠近底部的地方幾乎筆直、越往上彎度越明顯，比線性彎曲更自然。
+  const curveAt = (y: number): number => {
+    const t = (trunkBottomY - y) / (trunkBottomY - trunkTopY);
+    return curveMax * Math.pow(Math.max(0, Math.min(1, t)), 1.5);
+  };
 
-  const crownX = 8; // 樹幹寬度是 x=7..9，中心線在 8，樹冠要對齊這個中心才不會偏一邊
-  const crownY = 6;
-
-  // 樹冠：7 片葉子呈放射狀展開並自然下垂，涵蓋上半圈到左右兩側，中間留出頂端縫隙，
-  // 整體看起來像一叢從樹幹頂端炸開的羽狀葉，而不是對稱的十字。
-  const fronds: { angle: number; length: number; droop: number }[] = [
-    { angle: 175, length: 6.2, droop: 2.6 },
-    { angle: 205, length: 5.6, droop: 1.6 },
-    { angle: 235, length: 4.8, droop: 0.6 },
-    { angle: 268, length: 4.2, droop: -0.4 },
-    { angle: 300, length: 4.8, droop: -0.2 },
-    { angle: 330, length: 5.6, droop: 0.8 },
-    { angle: 5, length: 6, droop: 2.2 },
-  ];
-  for (const { angle, length, droop } of fronds) {
-    drawFrond(ctx, crownX, crownY, angle, length, droop, "#2e6b32", "#4f9a4a");
+  // 逐行畫，每一行的中心點都跟著 curveAt(y) 偏移——fillSymmetricRows 本身仍保證
+  // 「這一行」左右對稱，只是整段疊起來的中心線會彎，不是整棵樹歪一邊。
+  for (let y = trunkTopY; y <= trunkBottomY; y++) {
+    const t = (y - trunkTopY) / (trunkBottomY - trunkTopY);
+    const halfWidth = trunkBaseHalfWidth - (trunkBaseHalfWidth - trunkTopHalfWidth) * t;
+    fillSymmetricRows(ctx, baseX + curveAt(y), y, y, () => halfWidth, () => trunkColor);
+  }
+  // 分節紋理加密到 5 道（原本 3 道），一樣跟著彎度走
+  for (const y of [14, 17.5, 21, 24.5, 28]) {
+    const t = (y - trunkTopY) / (trunkBottomY - trunkTopY);
+    const halfWidth = trunkBaseHalfWidth - (trunkBaseHalfWidth - trunkTopHalfWidth) * t;
+    const ry = Math.round(y);
+    fillSymmetricRows(ctx, baseX + curveAt(ry), ry, ry, () => halfWidth, () => trunkShadeColor);
   }
 
-  // 椰子：三顆聚在樹冠正下方，深淺兩色區分明暗面
-  fillPixelEllipse(ctx, crownX - 1.2, crownY + 1.6, 0.9, 0.8, "#6b4a2f");
-  fillPixelEllipse(ctx, crownX + 0.6, crownY + 2.1, 0.9, 0.8, "#5a3b25");
-  fillPixelEllipse(ctx, crownX - 0.4, crownY + 2.6, 0.9, 0.8, "#6b4a2f");
+  const crownX = baseX + curveAt(trunkTopY);
+  const crownY = trunkTopY;
+
+  // 樹冠：左右鏡射對稱展開。葉子分成「內圈」跟「外圈」用不同深淺的綠色組合，
+  // 不是每片都同一組配色，看起來比較有層次，也是這類題材常見的畫法。
+  const innerGreens: [string, string] = ["#2e6b32", "#4f9a4a"];
+  const outerGreens: [string, string] = ["#245a29", "#3f8a3f"];
+  const frondPairs: { deltaDeg: number; length: number; droop: number; colors: [string, string] }[] = [
+    { deltaDeg: 12, length: 9, droop: 0.8, colors: innerGreens },
+    { deltaDeg: 35, length: 11.5, droop: 2.2, colors: innerGreens },
+    { deltaDeg: 75, length: 10.2, droop: 3.4, colors: outerGreens },
+    { deltaDeg: 115, length: 11.8, droop: 5, colors: outerGreens },
+  ];
+  for (const { deltaDeg, length, droop, colors } of frondPairs) {
+    drawFrond(ctx, crownX, crownY, 270 - deltaDeg, length, droop, colors[0], colors[1]);
+    drawFrond(ctx, crownX, crownY, 270 + deltaDeg, length, droop, colors[0], colors[1]);
+  }
+  drawFrond(ctx, crownX, crownY, 270, 9, 0.5, ...innerGreens); // 正上方中央短葉，本身即左右對稱
+
+  // 底部草叢：幾撮短草圍在樹幹底部，讓椰子樹有「種在地上」的感覺，不是懸空立在草地上。
+  const grassColors = ["#5f9e4a", "#7fbf5f"];
+  const tuftOffsets = [-5, -3, 3, 5.5, 0.5];
+  tuftOffsets.forEach((dx, i) => {
+    const gx = baseX + dx;
+    const gy = trunkBottomY + 1.5;
+    drawPixelLine(ctx, gx, gy, gx - 0.8, gy - 2.4, grassColors[i % 2]);
+    drawPixelLine(ctx, gx, gy, gx + 0.8, gy - 2.2, grassColors[(i + 1) % 2]);
+  });
+
+  // 椰子：兩顆對稱掛在樹冠正下方左右兩側，同色維持左右完全對稱
+  fillPixelEllipse(ctx, crownX - 2, crownY + 4, 1.7, 1.5, "#96714a");
+  fillPixelEllipse(ctx, crownX + 2, crownY + 4, 1.7, 1.5, "#96714a");
 }
 
 function drawStoneLantern(ctx: CanvasRenderingContext2D): void {
@@ -243,39 +311,46 @@ function drawCherryBlossom(ctx: CanvasRenderingContext2D): void {
 }
 
 function drawBeachUmbrella(ctx: CanvasRenderingContext2D): void {
-  // 傘面：實心圓頂帳篷剪影（頂端窄、底邊寬），直條紋交錯紅白配色模擬傘骨分色，
-  // 取代原本用細線輻射狀畫出來、看起來像一面旗子的版本。
-  const cx = 8;
-  const domeTopY = 2;
-  const domeBottomY = 7;
-  const rx = 6.5;
+  // 使用者反應原本太粗糙／bulky、傘柱又對不準傘面中心，這裡用 2 倍解析度畫布
+  // （見 GRID_OVERRIDE）加上 fillSymmetricRows 重畫：傘面剪影跟傘柱都用同一個連續座標
+  // 中心 cx，傘柱寬度取偶數（2px）確保 x0=cx-1 一定是整數、精確置中，不會再有 0.5px 偏移。
+  const cx = 16;
+  const domeTopY = 5;
+  const domeBottomY = 15;
+  const rx = 13;
   const ry = domeBottomY - domeTopY;
-  const stripeWidth = 1.6;
+  const stripeWidth = 2.6; // 條紋加密（原本 1.6，畫布放大 2 倍後用 2.6 維持相近的視覺密度、線條更細）
   const stripeColors = ["#e8556e", "#f5f0e6"];
+  const stripeColorAt = (x: number) => stripeColors[Math.floor(Math.abs(x + 0.5 - cx) / stripeWidth) % 2];
 
-  for (let y = domeTopY; y <= domeBottomY; y++) {
-    const t = (y - domeTopY) / ry;
-    const halfWidth = rx * Math.sqrt(Math.max(0, 1 - (1 - t) * (1 - t)));
-    const minX = Math.round(cx - halfWidth);
-    const maxX = Math.round(cx + halfWidth);
-    for (let x = minX; x <= maxX; x++) {
-      const segment = Math.floor((x - (cx - rx)) / stripeWidth);
-      ctx.fillStyle = stripeColors[Math.abs(segment) % 2];
-      ctx.fillRect(x, y, 1, 1);
-    }
+  fillSymmetricRows(
+    ctx,
+    cx,
+    domeTopY,
+    domeBottomY,
+    (y) => {
+      const t = (y - domeTopY) / ry;
+      return rx * Math.sqrt(Math.max(0, 1 - (1 - t) * (1 - t)));
+    },
+    stripeColorAt
+  );
+
+  // 傘緣一圈扇形滾邊，改用小橢圓堆疊（跟其他裝飾的圓潤細節同一種手法），比純方形像素點更細緻；
+  // 用 fillPixelEllipse 本身的連續座標判斷，左右偏移量相同、顏色也對稱交錯，一定鏡射對稱。
+  const toothSpacing = rx / 4;
+  for (let k = 0; k <= 4; k++) {
+    const offset = k * toothSpacing;
+    const color = stripeColors[k % 2];
+    fillPixelEllipse(ctx, cx + offset, domeBottomY + 1, 1.3, 1, color);
+    if (k > 0) fillPixelEllipse(ctx, cx - offset, domeBottomY + 1, 1.3, 1, color);
   }
 
-  // 傘緣一圈小鋸齒飄邊，呼應傘布常見的扇形滾邊
-  for (let x = Math.round(cx - rx); x <= Math.round(cx + rx); x += 2) {
-    const segment = Math.floor((x - (cx - rx)) / stripeWidth);
-    ctx.fillStyle = stripeColors[Math.abs(segment) % 2];
-    ctx.fillRect(x, domeBottomY + 1, 1, 1);
-  }
-
-  // 傘尖與傘柱
+  // 傘尖與傘柱：兩者都用偶數寬度（2px）搭配整數起點 cx-1，連續座標中心精確落在 cx，
+  // 保證跟傘面剪影（同一個 cx）完全對齊，不會再有 0.5px 偏移。
+  const umbrellaGrid = GRID_OVERRIDE["beach-umbrella"] ?? 32;
   ctx.fillStyle = "#e8b25d";
-  ctx.fillRect(cx, domeTopY - 1, 1, 1);
-  ctx.fillRect(cx - 1, domeBottomY, 2, 15 - domeBottomY);
+  ctx.fillRect(cx - 1, domeTopY - 2, 2, 2); // 傘尖
+  ctx.fillRect(cx - 1, domeBottomY, 2, umbrellaGrid - 2 - domeBottomY); // 傘柱
 }
 
 function drawPumpkinLantern(ctx: CanvasRenderingContext2D): void {
@@ -325,9 +400,10 @@ const DRAWERS: Record<DecorShape, (ctx: CanvasRenderingContext2D) => void> = {
 };
 
 export function renderDecorCanvas(shape: DecorShape): HTMLCanvasElement {
+  const grid = GRID_OVERRIDE[shape] ?? GRID;
   const canvas = document.createElement("canvas");
-  canvas.width = GRID;
-  canvas.height = GRID;
+  canvas.width = grid;
+  canvas.height = grid;
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingEnabled = false;
   DRAWERS[shape](ctx);

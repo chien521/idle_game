@@ -76,11 +76,12 @@ const DECOR_SCALE_MULTIPLIER: Partial<Record<DecorShape, number>> = {
   "wishing-fountain": 5.2,
   "garden-gazebo": 4.8,
   "ancient-tree": 5.6,
-  "coconut-tree": 10,
+  "coconut-tree": 6.2, // 使用者要求縮小成「略比陽傘大就好」（原本 10，陽傘是 5.625）
   campfire: 2.5,
   "beach-umbrella": 5.625, // 使用者要求再縮小 0.75 倍（原本是椰子樹 10 倍的 0.75 倍＝7.5）
   snowman: 3.5, // 使用者反應太小，調大於預設值 2
   "cherry-blossom": 3.5, // 使用者反應太小，調大於預設值 2
+  "pumpkin-lantern": 3, // 使用者要求再放大 0.5 倍（原本預設值 2 的 1.5 倍）
 };
 function decorScaleFor(shape: DecorShape | undefined): number {
   // 沒特別列在 DECOR_SCALE_MULTIPLIER 裡的種類（苔石、彩色底沙、石燈籠、四季限定裝飾……）預設倍率是 2，

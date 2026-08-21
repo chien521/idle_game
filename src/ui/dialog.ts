@@ -166,7 +166,22 @@ function attemptNativeDownload(url: string, filename: string): void {
   }
 }
 
+/** 是不是被嵌在別的頁面的 iframe 裡（例如 VIVERSE Worlds）——這種環境下 <a download> 才可能被
+ *  sandbox 擋掉，所以下載卡片的「保底顯示」只在這種情況才需要跳出來。一般直接開網頁（GitHub Pages、
+ *  本機開發）是最上層視窗，原生下載本來就會正常動作，不用每次都多跳一個視窗打斷。跨網域 iframe
+ *  讀 window.top 會拋例外，那種情況本身就代表被嵌在別的來源裡，一併當成「有嵌入」處理。 */
+function isEmbedded(): boolean {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
 export function showDownloadableImage(title: string, dataUrl: string, filename: string): void {
+  attemptNativeDownload(dataUrl, filename);
+  if (!isEmbedded()) return; // 不在 iframe 裡，原生下載已經處理好了，不用再跳卡片
+
   const r = openDialog((r) => {
     r.message.textContent = title;
     const img = document.createElement("img");
@@ -183,10 +198,17 @@ export function showDownloadableImage(title: string, dataUrl: string, filename: 
   const downloadBtn = makeButton(t("ui.btn.screenshot"), true);
   downloadBtn.addEventListener("click", () => attemptNativeDownload(dataUrl, filename));
   r.actions.append(closeBtn, downloadBtn);
-  attemptNativeDownload(dataUrl, filename); // 沒被擋掉的環境（例如一般網頁）順便直接觸發一次
 }
 
 export function showDownloadableText(title: string, text: string, filename: string, mime: string): void {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  attemptNativeDownload(url, filename);
+  if (!isEmbedded()) {
+    URL.revokeObjectURL(url); // 沒開卡片就不會再用到這個 blob URL 了，直接釋放
+    return;
+  }
+
   const r = openDialog((r) => {
     r.message.textContent = title;
     const textarea = document.createElement("textarea");
@@ -203,9 +225,6 @@ export function showDownloadableText(title: string, text: string, filename: stri
     hint.textContent = t("dialog.copyHint");
     r.body.appendChild(hint);
   });
-
-  const blob = new Blob([text], { type: mime });
-  const url = URL.createObjectURL(blob);
 
   const closeBtn = makeButton(t("dialog.close"), false);
   closeBtn.addEventListener("click", () => {
@@ -225,5 +244,4 @@ export function showDownloadableText(title: string, text: string, filename: stri
   const downloadBtn = makeButton(t("ui.btn.export"), true);
   downloadBtn.addEventListener("click", () => attemptNativeDownload(url, filename));
   r.actions.append(closeBtn, copyBtn, downloadBtn);
-  attemptNativeDownload(url, filename); // 沒被擋掉的環境順便直接觸發一次
 }

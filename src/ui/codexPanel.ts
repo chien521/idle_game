@@ -1,15 +1,10 @@
 import type { Simulation, DiscoveredCreature } from "../simulation";
 import { renderCreatureCanvas } from "../render/creatureSprite";
 import { renderVisitorCanvas } from "../render/rareVisitorSprite";
-import { UNLOCKS } from "../unlocks";
 import { VISITOR_KINDS, VISITOR_LABELS, type VisitorKind } from "../easterEgg";
 import { t } from "../i18n";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-
-// 圖鑑類的收集成就（稀有變異、四維基因）跟裝飾類分開陳列——那些是「放進場景」的東西，
-// 混在一起容易讓人誤以為圖鑑項目也能點來放置。裝飾類進度留在 shopPanel，圖鑑類進度顯示在這裡。
-const CODEX_UNLOCKS = UNLOCKS.filter((u) => u.type === "codex");
 
 type FamilyRole = "self" | "ancestor" | "descendant";
 const ROLE_BORDER_COLOR: Record<FamilyRole, string> = {
@@ -156,53 +151,7 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
   header.appendChild(closeBtn);
   card.appendChild(header);
 
-  // 圖鑑類收集成就（稀有變異、四維基因），跟下面「歷來出現過的個體」格狀圖分開，
-  // 純顯示進度、不用點擊互動——不像裝飾類還有「放置」按鈕可以按。
-  const unlockSection = document.createElement("div");
-  unlockSection.style.cssText = "display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px;";
-  card.appendChild(unlockSection);
-
-  interface UnlockRowRefs {
-    row: HTMLElement;
-    label: HTMLDivElement;
-    desc: HTMLDivElement;
-  }
-  const unlockRowRefs = new Map<string, UnlockRowRefs>();
-
-  function buildUnlockRow(): UnlockRowRefs {
-    const row = document.createElement("div");
-    row.style.cssText = "border-radius: 10px; padding: 8px 12px;";
-    const label = document.createElement("div");
-    label.style.cssText = "font-size: 13px; font-weight: 600;";
-    row.appendChild(label);
-    const desc = document.createElement("div");
-    desc.style.cssText = "font-size: 11px; opacity: 0.7; margin-top: 2px;";
-    row.appendChild(desc);
-    unlockSection.appendChild(row);
-    return { row, label, desc };
-  }
-
-  function updateUnlocks(): void {
-    for (const unlock of CODEX_UNLOCKS) {
-      let refs = unlockRowRefs.get(unlock.id);
-      if (!refs) {
-        refs = buildUnlockRow();
-        unlockRowRefs.set(unlock.id, refs);
-      }
-      // 圖鑑類條件都讀 sim.seenRareCreature / sim.seenSpectrum 這種一旦達成就不會變回沒達成的
-      // 累積旗標（見 unlocks.ts），直接即時算 isMet(sim) 就準確，不用額外傳 unlockedIds 進來核對。
-      const met = unlock.isMet(sim);
-      refs.row.style.cssText = `
-        border-radius: 10px; padding: 8px 12px;
-        background: ${met ? "rgba(127,216,176,0.12)" : "rgba(255,255,255,0.04)"};
-        border: 1px solid ${met ? "rgba(127,216,176,0.35)" : "rgba(255,255,255,0.08)"};
-      `;
-      refs.label.textContent = `${met ? "✅" : "🔒"} ${unlock.label}`;
-      refs.desc.textContent = met ? t("codex.unlockedStatus") : unlock.progressLabel?.(sim) ?? unlock.description;
-    }
-  }
-
-  // 稀有訪客子圖鑑：跟上面的收集成就（unlockSection）分開陳列——這裡是「有圖有名字」的收藏格子，
+  // 稀有訪客子圖鑑：這裡是「有圖有名字」的收藏格子，
   // 不是純文字進度。已找到的種類顯示牠的造型跟名字，還沒找到的維持「？」神秘格，不提前爆雷長相/名字，
   // 保留「點到才算找到」的驚喜感（呼應 sim.markVisitorFound 需要玩家主動互動才記錄的設計）。
   const visitorSection = document.createElement("div");
@@ -386,7 +335,6 @@ export function mountCodexPanel(root: HTMLElement, sim: Simulation): CodexPanel 
   function update(): void {
     populationStat.textContent = `🌿 ${sim.creatures.length}`;
     discoveredStat.textContent = `⭐ ${sim.discoveredCreatures.length}`;
-    updateUnlocks();
     updateVisitorGallery();
 
     // 個體數沒變就不重畫格子（避免每 frame 重建 DOM），但高亮/連線每次都重算，
