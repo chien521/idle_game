@@ -137,21 +137,6 @@ export function readSaveData(): SaveData | null {
   }
 }
 
-export function exportSaveToFile(
-  sim: Simulation,
-  unlockedIds: ReadonlySet<string>,
-  placements: readonly DecorPlacement[]
-): void {
-  const data = serialize(sim, unlockedIds, placements);
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `pixel-terrarium-save-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
 export function readUnlockedIds(data: SaveData): Set<string> {
   return new Set(data.unlockedIds ?? []);
 }

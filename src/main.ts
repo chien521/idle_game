@@ -6,7 +6,6 @@ import {
   applyOfflineProgress,
   saveGame,
   serialize,
-  exportSaveToFile,
   importSaveFromJson,
   readUnlockedIds,
   readPlacements,
@@ -23,6 +22,7 @@ import { t, locale } from "./i18n";
 import { initViverseAuth, loginToViverse, logoutFromViverse, type ViverseProfile } from "./viverse/auth";
 import { saveToCloud, loadFromCloud, saveBeacon } from "./viverse/storage";
 import { mountProfileChip } from "./ui/profileChip";
+import { showConfirm, showAlert, showDownloadableImage, showDownloadableText } from "./ui/dialog";
 import type { SaveData } from "./save";
 
 const FOUNDER_COUNT = 8;
@@ -160,12 +160,10 @@ function buildUI(root: HTMLElement) {
   };
 }
 
-/** 把 canvas 截圖的 data URL 觸發成瀏覽器下載，檔名格式比照 exportSaveToFile。 */
+/** 把 canvas 截圖用卡片顯示出來（同時嘗試觸發下載）：VIVERSE 的 iframe 若擋掉下載，
+ *  至少畫面上還看得到、能長按/右鍵手動存，不會像直接觸發 <a download> 那樣完全沒反應。 */
 function downloadScreenshot(dataUrl: string): void {
-  const a = document.createElement("a");
-  a.href = dataUrl;
-  a.download = `pixel-terrarium-${new Date().toISOString().slice(0, 10)}.png`;
-  a.click();
+  showDownloadableImage(t("ui.btn.screenshot"), dataUrl, `pixel-terrarium-${new Date().toISOString().slice(0, 10)}.png`);
 }
 
 function makeButton(label: string, primary = false): HTMLButtonElement {
@@ -227,7 +225,10 @@ function main() {
   ui.speedButtons.forEach((b, i) => b.addEventListener("click", () => setSpeed(SPEED_OPTIONS[i])));
   setSpeed(1);
 
-  ui.exportButton.addEventListener("click", () => exportSaveToFile(sim, unlockedIds, placements));
+  ui.exportButton.addEventListener("click", () => {
+    const json = JSON.stringify(serialize(sim, unlockedIds, placements), null, 2);
+    showDownloadableText(t("ui.btn.export"), json, `pixel-terrarium-save-${new Date().toISOString().slice(0, 10)}.json`, "application/json");
+  });
   ui.screenshotButton.addEventListener("click", () => downloadScreenshot(scene.screenshotDataUrl()));
   ui.shopButton.addEventListener("click", () => shopPanel.toggle());
   ui.codexButton.addEventListener("click", () => codexPanel.toggle());
@@ -237,11 +238,11 @@ function main() {
     const file = ui.importInput.files?.[0];
     ui.importInput.value = ""; // 清空，不然選同一個檔案兩次不會再觸發 change
     if (!file) return;
-    if (!window.confirm(t("ui.confirm.import"))) return;
+    if (!(await showConfirm(t("ui.confirm.import")))) return;
 
     const text = await file.text();
     if (!importSaveFromJson(text)) {
-      window.alert(t("ui.alert.importFailed"));
+      await showAlert(t("ui.alert.importFailed"));
       return;
     }
     resetting = true;
@@ -421,8 +422,8 @@ function main() {
   });
   window.addEventListener("beforeunload", persist);
 
-  ui.resetButton.addEventListener("click", () => {
-    if (!window.confirm(t("ui.confirm.reset"))) return;
+  ui.resetButton.addEventListener("click", async () => {
+    if (!(await showConfirm(t("ui.confirm.reset")))) return;
     resetting = true;
     clearSaveData();
     window.location.reload();
