@@ -22,6 +22,7 @@ import { t, locale, LOCALE_NAMES, LOCALE_LIST, setManualLocale } from "./i18n";
 import { initViverseAuth, loginToViverse, logoutFromViverse, type ViverseProfile } from "./viverse/auth";
 import { saveToCloud, loadFromCloud, saveBeacon } from "./viverse/storage";
 import { mountProfileChip } from "./ui/profileChip";
+import { mountOrientationGate } from "./ui/orientationGate";
 import { showConfirm, showAlert, showDownloadableImage, showDownloadableText, showChoice, showInfo } from "./ui/dialog";
 import type { SaveData } from "./save";
 
@@ -218,6 +219,7 @@ function main() {
   scene.setDecor(placements);
   sim.setDecorPlacements(placements);
   const ui = buildUI(root);
+  mountOrientationGate(root);
 
   // 重新開始／匯入存檔都會用 reload() 讓 bootstrapSimulation 用新的 localStorage 內容重新初始化；
   // 這段期間要跳過自動存檔，不然 reload() 觸發的 beforeunload 會用「重新整理前的最後狀態」把

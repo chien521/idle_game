@@ -1020,18 +1020,24 @@ export class TerrariumScene {
 
     const rect = this.viewRect;
     const rectCenterX = (rect.left + rect.right) / 2;
+    const worldWidth = rect.right - rect.left;
     const rectHeight = rect.top - rect.bottom;
     const viewAspect = w / h;
 
-    // 高度永遠完整顯示（地面+天空都不裁，寵物、天空永遠都在），寬度依螢幕比例算：
-    // 比世界窄的螢幕（多數手機直向）裁左右（世界對稱，置中裁沒問題，寵物一樣貼齊邊界）；
-    // 比世界寬的螢幕（多數桌機／橫向）則會比世界本身寬，超出草地／天空範圍的部分不畫任何東西，
-    // 直接露出畫布背景色（黑色），變成左右兩側的黑邊——不會刻意延伸草地製造「隱形邊界」的錯覺。
-    const visibleWidth = rectHeight * viewAspect;
+    // 高度優先完整顯示（原本的邏輯），寬度依螢幕比例算：寬螢幕（多數桌機／橫向）算出來的
+    // 可視寬度本來就會超過世界寬度，兩側自然露出黑邊，不用特別處理。
+    // 但手機直向螢幕極端窄長，這樣純粹「crop 寬度」會只剩世界寬度不到 4 成，寵物大部分時間
+    // 都晃到可視範圍外，變成在看空地。所以加一個下限：可視寬度最少要有世界寬度的
+    // MIN_VISIBLE_WIDTH_FRACTION，不夠的話改成「撐高可視高度」而不是「裁得更窄」——
+    // 犧牲一點畫面上緣多出來的天空留白，換取寵物大多數時間都在畫面範圍內晃動。
+    const MIN_VISIBLE_WIDTH_FRACTION = 0.6;
+    const visibleWidth = Math.max(rectHeight * viewAspect, worldWidth * MIN_VISIBLE_WIDTH_FRACTION);
+    const visibleHeight = visibleWidth / viewAspect;
+
     const left = rectCenterX - visibleWidth / 2;
     const right = rectCenterX + visibleWidth / 2;
-    const top = rect.top;
     const bottom = rect.bottom;
+    const top = rect.bottom + visibleHeight; // 地面基準線固定在畫面底部，多出來的高度全部加給天空
 
     this.camera.left = left;
     this.camera.right = right;
