@@ -27,7 +27,7 @@ import type { SaveData } from "./save";
 
 const FOUNDER_COUNT = 8;
 const AUTOSAVE_INTERVAL_SECONDS = 20;
-const SPEED_OPTIONS = [1, 4, 20] as const;
+const SPEED_OPTIONS = [2, 5, 10] as const;
 const GREENHOUSE_UNLOCK_ID = "mechanic-greenhouse-expansion";
 const GREENHOUSE_CAP_BONUS = 5;
 
@@ -244,7 +244,7 @@ function main() {
     });
   };
   ui.speedButtons.forEach((b, i) => b.addEventListener("click", () => setSpeed(SPEED_OPTIONS[i])));
-  setSpeed(1);
+  setSpeed(SPEED_OPTIONS[0]);
 
   ui.exportButton.addEventListener("click", () => {
     const json = JSON.stringify(serialize(sim, unlockedIds, placements), null, 2);
