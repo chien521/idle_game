@@ -80,7 +80,7 @@ const DECOR_SCALE_MULTIPLIER: Partial<Record<DecorShape, number>> = {
   campfire: 2.5,
   "beach-umbrella": 5.625, // 使用者要求再縮小 0.75 倍（原本是椰子樹 10 倍的 0.75 倍＝7.5）
   snowman: 3.5, // 使用者反應太小，調大於預設值 2
-  "cherry-blossom": 3.5, // 使用者反應太小，調大於預設值 2
+  "cherry-blossom": 6.2, // 使用者要求跟椰子樹一樣大
   "pumpkin-lantern": 3, // 使用者要求再放大 0.5 倍（原本預設值 2 的 1.5 倍）
 };
 function decorScaleFor(shape: DecorShape | undefined): number {
