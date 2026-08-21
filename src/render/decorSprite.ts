@@ -296,7 +296,14 @@ function drawAncientTree(ctx: CanvasRenderingContext2D): void {
 function drawCherryBlossom(ctx: CanvasRenderingContext2D): void {
   ctx.fillStyle = "#8a6440";
   fillPixelEllipse(ctx, 8, 13, 3.2, 1.6, "#8a6440"); // 花盆
-  ctx.fillRect(7, 8, 2, 6); // 枝幹
+  ctx.fillRect(7, 6, 2, 8); // 枝幹：頂端拉高到 y=6，才會插進中央花叢（中心 y=4.5、半徑 2.8）的範圍內，不會跟花叢斷開
+
+  // 左右兩叢花的樹枝：從主幹頂端斜岔出去，畫在花叢底下當骨架，才不會讓花叢像浮在半空中
+  const trunkTopX = 8;
+  const trunkTopY = 6.5;
+  ctx.fillStyle = "#8a6440";
+  drawPixelLine(ctx, trunkTopX, trunkTopY, 5, 6.5, "#8a6440");
+  drawPixelLine(ctx, trunkTopX, trunkTopY, 11, 7, "#8a6440");
 
   ctx.fillStyle = "#f2a8c4";
   for (const [dx, dy, r] of [
